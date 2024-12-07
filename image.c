@@ -18,9 +18,7 @@ graph_t * new_grid(const color_t bg_color, int n_rows, int n_cols) {
       if (col > 0) {
         coordinate_t left = { row, col - 1 };
         node_t * left_node = get_node(graph, left);
-        if (unlikely(!left_node)) {
-          return NULL;
-        }
+        assert(left_node);
         edge_t * edge = add_edge(graph, left_node, node, HORIZONTAL);
         if (unlikely(!edge)) {
           return NULL;
@@ -29,9 +27,7 @@ graph_t * new_grid(const color_t bg_color, int n_rows, int n_cols) {
       if (row > 0) {
         coordinate_t top = { row - 1, col };
         node_t * top_node = get_node(graph, top);
-        if (unlikely(!top_node)) {
-          return NULL;
-        }
+        assert(top_node);
         edge_t * edge = add_edge(graph, top_node, node, VERTICAL);
         if (unlikely(!edge)) {
           return NULL;

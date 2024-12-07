@@ -29,11 +29,6 @@ typedef struct _subnode
 
 struct _edge;
 
-typedef struct _list_entry
-{
-  struct _list_entry *next;
-} list_entry_t;
-
 typedef struct _subnode_block
 {
   struct _subnode_block *next;
@@ -85,71 +80,23 @@ static inline unsigned int node_id(coordinate_t coord)
   return 32 * coord.pri + coord.sec;
 }
 
-static inline void _init_node_list(node_t **head)
-{
-  *head = NULL;
-}
+struct _list_entry {
+  struct _list_entry *next;
+};
 
-static inline void _insert_node(node_t **head, node_t *entry)
-{
-  (entry)->next = *head;
-  *head = entry;
+#define _init_list(pphead) { *pphead = NULL; }
+#define _insert_entry(pphead, pentry) {                       \
+  (pentry)->next = *pphead; *pphead = pentry;                 \
 }
-
-static inline void _remove_node(node_t **head, node_t *entry)
-{
-  node_t **p = head;
-  if (*p == entry) {
-    *p = entry->next;
-    return;
-  }
-  while ((*p)->next != entry)
-  {
-    p = &((*p)->next);
-  }
-  (*p)->next = entry->next;
-}
-
-static inline void _init_block_list(subnode_block_t **head)
-{
-  *head = NULL;
-}
-
-static inline void _insert_block(subnode_block_t **head, subnode_block_t *entry)
-{
-  (entry)->next = *head;
-  *head = entry;
-}
-
-static inline void _remove_block(subnode_block_t **head, subnode_block_t *entry)
-{
-  subnode_block_t **p = head;
-  while ((*p)->next != entry)
-  {
-    p = &((*p)->next);
-  }
-  (*p)->next = entry->next;
-}
-
-static inline void _init_edge_list(edge_t **head)
-{
-  *head = NULL;
-}
-
-static inline void _insert_edge(edge_t **head, edge_t *entry)
-{
-  (entry)->next = *head;
-  *head = entry;
-}
-
-static inline void _remove_edge(edge_t **head, edge_t *entry)
-{
-  edge_t **p = head;
-  while ((*p)->next != entry)
-  {
-    p = &((*p)->next);
-  }
-  (*p)->next = entry->next;
+#define _remove_entry(pphead, pentry) {                       \
+  struct _list_entry ** p = (struct _list_entry **) pphead;   \
+  struct _list_entry * e = (struct _list_entry *) pentry;     \
+  if ((*p) == e) {                                            \
+    *p = e->next;                                             \
+  } else {                                                    \
+    while ((*p)->next != e) { p = &((*p)->next); }            \
+    (*p)->next = e->next;                                     \
+  }                                                           \
 }
 
 static inline graph_t *new_graph()
@@ -157,30 +104,30 @@ static inline graph_t *new_graph()
   graph_t *graph = malloc(sizeof(graph_t));
 
   graph->n_nodes = 0;
-  _init_node_list(&graph->nodes);
+  _init_list(&graph->nodes);
 
-  _init_node_list(&graph->free_nodes);
+  _init_list(&graph->free_nodes);
   graph->nodes_available = NODES_ALLOC;
   node_t *nodes = malloc(NODES_ALLOC * sizeof(node_t));
   for (int i = 0; i < NODES_ALLOC; i++)
   {
-    _insert_node(&graph->free_nodes, &nodes[i]);
+    _insert_entry(&graph->free_nodes, &nodes[i]);
   }
 
-  _init_edge_list(&graph->free_edges);
+  _init_list(&graph->free_edges);
   graph->edges_available = EDGES_ALLOC;
   edge_t *edges = malloc(EDGES_ALLOC * sizeof(edge_t));
   for (int i = 0; i < EDGES_ALLOC; i++)
   {
-    _insert_edge(&graph->free_edges, &edges[i]);
+    _insert_entry(&graph->free_edges, &edges[i]);
   }
 
-  _init_block_list(&graph->free_blocks);
+  _init_list(&graph->free_blocks);
   graph->blocks_available = SUBNODE_BLOCKS_ALLOC;
   subnode_block_t *blocks = malloc(SUBNODE_BLOCKS_ALLOC * sizeof(subnode_block_t));
   for (int i = 0; i < SUBNODE_BLOCKS_ALLOC; i++)
   {
-    _insert_block(&graph->free_blocks, &blocks[i]);
+    _insert_entry(&graph->free_blocks, &blocks[i]);
   }
 
   for (int idx = 0; idx < NODE_INDEX_SIZE; idx++)
@@ -236,7 +183,7 @@ static inline node_t *add_node(graph_t *graph, coordinate_t coord, int n_subnode
   graph->nodes_available--;
   graph->n_nodes++;
 
-  _remove_node(&graph->free_nodes, node);
+  _remove_entry(&graph->free_nodes, node);
 
   unsigned int idx = node_id(coord) % NODE_INDEX_SIZE;
   node_t * sibling = graph->index[idx];
@@ -245,7 +192,7 @@ static inline node_t *add_node(graph_t *graph, coordinate_t coord, int n_subnode
     sibling->next = node;
   } else {
     graph->index[idx] = node;
-    _insert_node(&graph->nodes, node);
+    _insert_entry(&graph->nodes, node);
   }
 
   graph->blocks_available -= n_blocks;
@@ -256,7 +203,7 @@ static inline node_t *add_node(graph_t *graph, coordinate_t coord, int n_subnode
   }
   node->n_subnodes = n_subnodes;
 
-  _init_edge_list(&node->edges);
+  _init_list(&node->edges);
   return node;
 }
 
@@ -273,8 +220,8 @@ static inline void remove_node(graph_t *graph, node_t *node)
     }
   }
 
-  _remove_node(&graph->nodes, node);
-  _insert_node(&graph->free_nodes, node);
+  _remove_entry(&graph->nodes, node);
+  _insert_entry(&graph->free_nodes, node);
   graph->nodes_available++;
   graph->n_nodes--;
 
@@ -323,8 +270,8 @@ static inline edge_t *add_edge(graph_t *graph, node_t *from, node_t *to, directi
 static inline void remove_edge(graph_t *graph, edge_t *edge)
 {
   edge_t *other = edge->swap;
-  _remove_edge(&edge->node->edges, edge);
-  _remove_edge(&other->node->edges, other);
+  _remove_entry(&edge->node->edges, edge);
+  _remove_entry(&other->node->edges, other);
 
   graph->edges_available += 2;
   other->next = edge;
