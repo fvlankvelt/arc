@@ -1,6 +1,10 @@
+#CCFLAGS=-O3 -std=gnu17
+CCFLAGS=-ggdb -std=gnu17
 
-%.o: %.c
-	gcc -O3 -c $< 
+%.o: %.c *.h
+	gcc ${CCFLAGS} -c $< 
+
+all: test
 
 test: test.o image.o
 	gcc -o test test.o image.o

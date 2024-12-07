@@ -3,6 +3,8 @@
 
 #include "graph.h"
 
-graph_t * graph_from_grid(graph_mem_t * mem, const color_t * grid, int n_rows, int n_cols);
+graph_t * new_grid(const color_t bg_color, int n_rows, int n_cols);
+graph_t * graph_from_grid(const color_t * grid, int n_rows, int n_cols);
+graph_t * get_no_abstraction_graph(const graph_t * in);
 
 #endif
