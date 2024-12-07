@@ -194,8 +194,20 @@ static inline node_t *add_node(graph_t *graph, coordinate_t coord, int n_subnode
     }
     node->n_subnodes = n_subnodes;
 
+    node->coord = coord;
     _init_list(&node->edges);
     return node;
+}
+
+static inline void remove_edge(graph_t *graph, edge_t *edge) {
+    edge_t *other = edge->swap;
+    _remove_entry(&edge->node->edges, edge);
+    _remove_entry(&other->node->edges, other);
+
+    graph->edges_available += 2;
+    other->next = edge;
+    edge->next = graph->free_edges;
+    graph->free_edges = other;
 }
 
 static inline void remove_node(graph_t *graph, node_t *node) {
@@ -208,6 +220,10 @@ static inline void remove_node(graph_t *graph, node_t *node) {
         } else {
             graph->index[idx] = NULL;
         }
+    }
+
+    while (node->edges) {
+      remove_edge(graph, node->edges);
     }
 
     _remove_entry(&graph->nodes, node);
@@ -252,17 +268,6 @@ static inline edge_t *add_edge(graph_t *graph, node_t *from, node_t *to,
     to->edges = to_from;
 
     return from_to;
-}
-
-static inline void remove_edge(graph_t *graph, edge_t *edge) {
-    edge_t *other = edge->swap;
-    _remove_entry(&edge->node->edges, edge);
-    _remove_entry(&other->node->edges, other);
-
-    graph->edges_available += 2;
-    other->next = edge;
-    edge->next = graph->free_edges;
-    graph->free_edges = other;
 }
 
 #endif  // __GRAPH__
