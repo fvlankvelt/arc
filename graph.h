@@ -7,7 +7,7 @@
 #define NODE_INDEX_SIZE 1024
 #define NODES_ALLOC 1024
 #define EDGES_ALLOC 2048
-#define SUBNODE_BLOCK_SIZE 16
+#define SUBNODE_BLOCK_SIZE 11
 #define SUBNODE_BLOCKS_ALLOC 256
 
 #define likely(x) __builtin_expect(!!(x), 1)
@@ -21,15 +21,17 @@ typedef struct _coordinate {
 } coordinate_t;
 
 typedef struct _subnode {
-    struct _coordinate coord;
+    coordinate_t coord;
     color_t color;
 } subnode_t;
 
 struct _edge;
 
+// premature optimization: fits on a cacheline (64 bytes)
 typedef struct _subnode_block {
     struct _subnode_block *next;
-    subnode_t subnode[SUBNODE_BLOCK_SIZE];
+    coordinate_t subnode[SUBNODE_BLOCK_SIZE];
+    color_t color[SUBNODE_BLOCK_SIZE];
 } subnode_block_t;
 
 typedef struct _node {
@@ -42,6 +44,7 @@ typedef struct _node {
 
 typedef enum _direction { HORIZONTAL, VERTICAL, OVERLAPPING } direction_t;
 
+// premature optimization: fits with partner on a cacheline (64 bytes)
 typedef struct _edge {
     struct _edge *next;
     struct _edge *swap;
@@ -146,21 +149,42 @@ static inline const node_t *first_node(const graph_t *graph) { return graph->nod
 
 static inline const node_t *next_node(const node_t *node) { return node->next; }
 
-static inline subnode_t *get_subnode(const node_t *node, int idx) {
+static inline subnode_t get_subnode(const node_t *node, int idx) {
     assert(idx < node->n_subnodes);
 
     subnode_block_t *block;
     for (block = node->subnodes; idx >= SUBNODE_BLOCK_SIZE; block = block->next) {
         idx = idx - SUBNODE_BLOCK_SIZE;
     }
-    return &block->subnode[idx];
+    subnode_t subnode;
+    subnode.coord = block->subnode[idx];
+    subnode.color = block->color[idx];
+    return subnode;
+}
+
+static inline void set_subnode(const node_t *node, int idx, subnode_t subnode) {
+    assert(idx < node->n_subnodes);
+
+    subnode_block_t *block;
+    for (block = node->subnodes; idx >= SUBNODE_BLOCK_SIZE; block = block->next) {
+        idx = idx - SUBNODE_BLOCK_SIZE;
+    }
+    block->subnode[idx] = subnode.coord;
+    block->color[idx] = subnode.color;
 }
 
 // lookup
 
 static inline node_t *get_node(graph_t *graph, coordinate_t coord) {
     unsigned int idx = node_id(coord) % NODE_INDEX_SIZE;
-    return graph->index[idx];
+    node_t *node = graph->index[idx];
+    while (node && idx == node_id(node->coord) % NODE_INDEX_SIZE) {
+        if (node->coord.pri == coord.pri && node->coord.sec == coord.sec) {
+            return node;
+        }
+        node = node->next;
+    }
+    return NULL;
 }
 
 // mutate
@@ -223,7 +247,7 @@ static inline void remove_node(graph_t *graph, node_t *node) {
     }
 
     while (node->edges) {
-      remove_edge(graph, node->edges);
+        remove_edge(graph, node->edges);
     }
 
     _remove_entry(&graph->nodes, node);
