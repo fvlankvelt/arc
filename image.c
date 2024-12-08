@@ -1,5 +1,5 @@
-#include "graph.h"
 #include "collection.h"
+#include "graph.h"
 
 graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
     graph_t* graph = new_graph();
@@ -89,23 +89,23 @@ graph_t* subgraph_by_color(const graph_t* in, color_t color) {
     return out;
 }
 
-void _add_neighbors(node_set_t * visited, list_node_t * nodes, const node_t * node, int *  count) {
-  for (const edge_t * edge = node->edges; edge; edge = edge->next) {
-    if (is_node_in_set(visited, edge->swap->node)) {
-      continue;
+void _add_neighbors(node_set_t* visited, list_node_t* nodes, const node_t* node, int* count) {
+    for (const edge_t* edge = node->edges; edge; edge = edge->next) {
+        if (is_node_in_set(visited, edge->swap->node)) {
+            continue;
+        }
+        node_t* peer = edge->swap->node;
+        add_node_to_set(visited, peer);
+        add_node_to_list(nodes, peer);
+        (*count)++;
+        _add_neighbors(visited, nodes, peer, count);
     }
-    node_t * peer = edge->swap->node;
-    add_node_to_set(visited, peer);
-    add_node_to_list(nodes, peer);
-    (*count)++;
-    _add_neighbors(visited, nodes, peer, count);
-  } 
-} 
+}
 
-graph_t* get_connected_components_graph(const graph_t* in) { 
-    graph_t* out = new_graph(); 
-    for (color_t color = 0; color < 10; color++) { 
-        graph_t* by_color = subgraph_by_color(in, color); 
+graph_t* get_connected_components_graph(const graph_t* in) {
+    graph_t* out = new_graph();
+    for (color_t color = 0; color < 10; color++) {
+        graph_t* by_color = subgraph_by_color(in, color);
         node_set_t* visited = new_node_set(by_color->n_nodes);
         int component_idx = 0;
         for (const node_t* node = by_color->nodes; node; node = node->next) {
@@ -113,26 +113,86 @@ graph_t* get_connected_components_graph(const graph_t* in) {
                 continue;
             }
             int n_subnodes = 1;
-            list_node_t * node_list = new_node_list();
+            list_node_t* node_list = new_node_list();
             add_node_to_set(visited, node);
             add_node_to_list(node_list, node);
             _add_neighbors(visited, node_list, node, &n_subnodes);
 
-            node_t * component = add_node(out, (coordinate_t) {color, component_idx}, n_subnodes);
+            node_t* component = add_node(out, (coordinate_t){color, component_idx}, n_subnodes);
             list_iter_t iter;
             int subnode_idx = 0;
-            for (init_list_iter(node_list, &iter); has_iter_value(&iter); next_list_iter(&iter)) {
-              subnode_t subnode = get_subnode(component, subnode_idx);
-              subnode.coord = iter.node->coord;
-              subnode.color = color;
-              set_subnode(component, subnode_idx, subnode);
-              subnode_idx++;
+            for (init_list_iter(node_list, &iter); has_iter_value(&iter);
+                 next_list_iter(&iter)) {
+                subnode_t subnode = get_subnode(component, subnode_idx);
+                subnode.coord = iter.node->coord;
+                subnode.color = color;
+                set_subnode(component, subnode_idx, subnode);
+                subnode_idx++;
             }
             component_idx++;
             free_node_list(node_list);
         }
         free_node_set(visited);
         free_graph(by_color);
+    }
+
+    for (node_t* node1 = out->nodes; node1; node1 = node1->next) {
+        for (node_t* node2 = out->nodes; node2; node2 = node2->next) {
+            bool edge_added = false;
+            for (int sub_1 = 0; !edge_added && sub_1 < node1->n_subnodes; sub_1++) {
+                for (int sub_2 = 0; !edge_added && sub_2 < node2->n_subnodes; sub_2++) {
+                    subnode_t subnode_1 = get_subnode(node1, sub_1);
+                    subnode_t subnode_2 = get_subnode(node2, sub_2);
+                    if (subnode_1.coord.pri == subnode_2.coord.pri) {
+                        bool found = false;
+                        int pri = subnode_1.coord.pri;
+                        int min, max;
+                        if (subnode_1.coord.sec < subnode_2.coord.sec) {
+                            min = subnode_1.coord.sec;
+                            max = subnode_2.coord.sec;
+                        } else {
+                            min = subnode_2.coord.sec;
+                            max = subnode_1.coord.sec;
+                        }
+                        for (int sec = min + 1; sec < max; sec++) {
+                            const node_t* orig_node = get_node(in, (coordinate_t){pri, sec});
+                            if (get_subnode(orig_node, 0).color != 0) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            add_edge(out, node1, node2, HORIZONTAL);
+                            edge_added = true;
+                            break;
+                        }
+                    } else if (subnode_1.coord.sec == subnode_2.coord.sec) {
+                        bool found = false;
+                        int sec = subnode_1.coord.sec;
+                        int min, max;
+                        if (subnode_1.coord.pri < subnode_2.coord.pri) {
+                            min = subnode_1.coord.pri;
+                            max = subnode_2.coord.pri;
+                        } else {
+                            min = subnode_2.coord.pri;
+                            max = subnode_1.coord.pri;
+                        }
+                        for (int pri = min + 1; pri < max; pri++) {
+                            const node_t* orig_node = get_node(in, (coordinate_t){pri, sec});
+                            if (get_subnode(orig_node, 0).color != 0) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            add_edge(out, node1, node2, VERTICAL);
+                            edge_added = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
     return out;
 }

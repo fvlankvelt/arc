@@ -175,7 +175,7 @@ static inline void set_subnode(const node_t *node, int idx, subnode_t subnode) {
 
 // lookup
 
-static inline node_t *get_node(graph_t *graph, coordinate_t coord) {
+static inline node_t *get_node(const graph_t *graph, coordinate_t coord) {
     unsigned int idx = node_id(coord) % NODE_INDEX_SIZE;
     node_t *node = graph->index[idx];
     while (node && idx == node_id(node->coord) % NODE_INDEX_SIZE) {

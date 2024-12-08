@@ -87,15 +87,31 @@ bool test_subgraph_by_color() {
 bool test_connected_components() {
     // clang-format off
     color_t grid[] = {
-      2, 2, 1,
-      2, 1, 1,
-      1, 1, 2,
+      2, 2, 0,
+      2, 0, 0,
+      2, 0, 2,
     };
     // clang-format on
     graph_t* graph = graph_from_grid(grid, 3, 3);
 
     graph_t* connected = get_connected_components_graph(graph);
     ASSERT(connected->n_nodes == 3, "incorrect number of components");
+
+    node_t* first_component = get_node(connected, (coordinate_t){2, 0});
+    ASSERT(first_component->n_subnodes == 4, "first component has wrong number of subnodes");
+    ASSERT(first_component->edges, "component does not have any edges");
+    node_t* other = get_node(connected, (coordinate_t){2, 1});
+    bool linked = false;
+    direction_t direction;
+    for (const edge_t* edge = first_component->edges; edge; edge = edge->next) {
+        if (edge->swap->node == other) {
+            linked = true;
+            direction = edge->direction;
+            break;
+        }
+    }
+    ASSERT(linked, "components are not linked");
+    ASSERT(direction == HORIZONTAL, "orientation is incorrect");
     free_graph(connected);
 
     free_graph(graph);
