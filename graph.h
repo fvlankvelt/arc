@@ -13,7 +13,22 @@
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
-typedef unsigned char color_t;
+typedef char color_t;
+#define BACKGROUND_COLOR ((color_t) -1)
+#define MOST_COMMON_COLOR ((color_t) -2)
+#define LEAST_COMMON_COLOR ((color_t) -3)
+
+#define MAX_SIZE -1
+#define MIN_SIZE -2
+#define ODD_SIZE -3
+
+typedef struct _derived_props {
+    color_t background_color;
+    color_t most_common_color;
+    color_t least_common_color;
+    unsigned short min_size;
+    unsigned short max_size;
+} derived_props_t;
 
 typedef struct _coordinate {
     unsigned short pri;
@@ -40,6 +55,7 @@ typedef struct _node {
     struct _subnode_block *subnodes;
     struct _coordinate coord;
     unsigned short n_subnodes;
+    unsigned short n_edges;
 } node_t;
 
 typedef enum _direction { HORIZONTAL, VERTICAL, OVERLAPPING } direction_t;
@@ -58,22 +74,29 @@ typedef struct _graph {
     // - for fast (index) lookups
     node_t *nodes;
 
+    // subnodes of a node can have different colors
+    bool is_multicolor;
+
+    // derived properties
+    bool _has_changed;
+    derived_props_t _derived;
+
     // memory management for mutating the graph
     unsigned short n_nodes;
-    unsigned short nodes_available;
-    unsigned short edges_available;
-    unsigned short blocks_available;
-    node_t *free_nodes;
-    edge_t *free_edges;
-    subnode_block_t *free_blocks;
+    unsigned short _nodes_available;
+    unsigned short _edges_available;
+    unsigned short _blocks_available;
+    node_t *_free_nodes;
+    edge_t *_free_edges;
+    subnode_block_t *_free_blocks;
 
     // nodes indexed by their node_id - this relies on sibling nodes being adjacent
-    node_t *index[NODE_INDEX_SIZE];
+    node_t *_index[NODE_INDEX_SIZE];
 
     // for freeing / cleanup
-    node_t *all_nodes;
-    edge_t *all_edges;
-    subnode_block_t *all_blocks;
+    node_t *_all_nodes;
+    edge_t *_all_edges;
+    subnode_block_t *_all_blocks;
 } graph_t;
 
 static inline unsigned int node_id(coordinate_t coord) { return 32 * coord.pri + coord.sec; }
@@ -109,37 +132,37 @@ static inline graph_t *new_graph() {
     graph->n_nodes = 0;
     _init_list(&graph->nodes);
 
-    _init_list(&graph->free_nodes);
-    graph->nodes_available = NODES_ALLOC;
-    graph->all_nodes = malloc(NODES_ALLOC * sizeof(node_t));
+    _init_list(&graph->_free_nodes);
+    graph->_nodes_available = NODES_ALLOC;
+    graph->_all_nodes = malloc(NODES_ALLOC * sizeof(node_t));
     for (int i = 0; i < NODES_ALLOC; i++) {
-        _insert_entry(&graph->free_nodes, &graph->all_nodes[i]);
+        _insert_entry(&graph->_free_nodes, &graph->_all_nodes[i]);
     }
 
-    _init_list(&graph->free_edges);
-    graph->edges_available = EDGES_ALLOC;
-    graph->all_edges = malloc(EDGES_ALLOC * sizeof(edge_t));
+    _init_list(&graph->_free_edges);
+    graph->_edges_available = EDGES_ALLOC;
+    graph->_all_edges = malloc(EDGES_ALLOC * sizeof(edge_t));
     for (int i = 0; i < EDGES_ALLOC; i++) {
-        _insert_entry(&graph->free_edges, &graph->all_edges[i]);
+        _insert_entry(&graph->_free_edges, &graph->_all_edges[i]);
     }
 
-    _init_list(&graph->free_blocks);
-    graph->blocks_available = SUBNODE_BLOCKS_ALLOC;
-    graph->all_blocks = malloc(SUBNODE_BLOCKS_ALLOC * sizeof(subnode_block_t));
+    _init_list(&graph->_free_blocks);
+    graph->_blocks_available = SUBNODE_BLOCKS_ALLOC;
+    graph->_all_blocks = malloc(SUBNODE_BLOCKS_ALLOC * sizeof(subnode_block_t));
     for (int i = 0; i < SUBNODE_BLOCKS_ALLOC; i++) {
-        _insert_entry(&graph->free_blocks, &graph->all_blocks[i]);
+        _insert_entry(&graph->_free_blocks, &graph->_all_blocks[i]);
     }
 
     for (int idx = 0; idx < NODE_INDEX_SIZE; idx++) {
-        graph->index[idx] = NULL;
+        graph->_index[idx] = NULL;
     }
     return graph;
 }
 
 static inline void free_graph(graph_t *graph) {
-    free(graph->all_blocks);
-    free(graph->all_edges);
-    free(graph->all_nodes);
+    free(graph->_all_blocks);
+    free(graph->_all_edges);
+    free(graph->_all_nodes);
     free(graph);
 }
 
@@ -177,7 +200,7 @@ static inline void set_subnode(const node_t *node, int idx, subnode_t subnode) {
 
 static inline node_t *get_node(const graph_t *graph, coordinate_t coord) {
     unsigned int idx = node_id(coord) % NODE_INDEX_SIZE;
-    node_t *node = graph->index[idx];
+    node_t *node = graph->_index[idx];
     while (node && idx == node_id(node->coord) % NODE_INDEX_SIZE) {
         if (node->coord.pri == coord.pri && node->coord.sec == coord.sec) {
             return node;
@@ -187,36 +210,86 @@ static inline node_t *get_node(const graph_t *graph, coordinate_t coord) {
     return NULL;
 }
 
+static inline derived_props_t get_derived_properties(const graph_t*graph) {
+    derived_props_t * props = (derived_props_t *) &graph->_derived;
+    if (graph->_has_changed) {
+        int counts[10] = {0};
+        int min_size = -1, max_size = -1;
+        for (const node_t * node = graph->nodes; node; node = node->next) {
+            if (min_size < 0 || min_size > node->n_subnodes) {
+                min_size = node->n_subnodes;
+            }
+            if (max_size < 0 || max_size < node->n_subnodes) {
+                max_size = node->n_subnodes;
+            }
+            for (int i = 0; i < node->n_subnodes; i++) {
+                subnode_t subnode = get_subnode(node, i);
+                counts[subnode.color]++;
+            }
+        }
+        props->max_size = max_size;
+        props->min_size = min_size;
+
+        int max = 0, min = 0;
+        int n_max = -1, n_min = -1;
+        for (int i = 0; i < 10; i++) {
+            if (counts[i] > 0) {
+                if (n_max < 0) {
+                    n_max = n_min = counts[i];
+                    max = min = i;
+                } else if (n_max < counts[i]) {
+                    max = i;
+                    n_max = counts[i];
+                } else if (n_min > counts[i]) {
+                    min = i;
+                    n_min = counts[i];
+                }
+            }
+        }
+        if (counts[0] > 0) {
+            props->background_color = 0;
+        } else {
+            props->background_color = max;
+        }
+        props->most_common_color = max;
+        props->least_common_color = min;
+        ((graph_t *) graph)->_has_changed = false;
+    }
+    return graph->_derived;
+}
+
 // mutate
 
 static inline node_t *add_node(graph_t *graph, coordinate_t coord, int n_subnodes) {
     int n_blocks = (n_subnodes + SUBNODE_BLOCK_SIZE - 1) / SUBNODE_BLOCK_SIZE;
-    if (unlikely(graph->nodes_available == 0 || graph->blocks_available < n_blocks)) {
+    if (unlikely(graph->_nodes_available == 0 || graph->_blocks_available < n_blocks)) {
         return NULL;
     }
 
-    node_t *node = graph->free_nodes;
-    graph->nodes_available--;
+    node_t *node = graph->_free_nodes;
+    graph->_nodes_available--;
     graph->n_nodes++;
+    graph->_has_changed = true;
 
-    _remove_entry(&graph->free_nodes, node);
+    _remove_entry(&graph->_free_nodes, node);
 
     unsigned int idx = node_id(coord) % NODE_INDEX_SIZE;
-    node_t *sibling = graph->index[idx];
+    node_t *sibling = graph->_index[idx];
     if (sibling) {
         node->next = sibling->next;
         sibling->next = node;
     } else {
-        graph->index[idx] = node;
+        graph->_index[idx] = node;
         _insert_entry(&graph->nodes, node);
     }
 
-    graph->blocks_available -= n_blocks;
-    node->subnodes = graph->free_blocks;
+    graph->_blocks_available -= n_blocks;
+    node->subnodes = graph->_free_blocks;
     while (n_blocks-- > 0) {
-        graph->free_blocks = graph->free_blocks->next;
+        graph->_free_blocks = graph->_free_blocks->next;
     }
     node->n_subnodes = n_subnodes;
+    node->n_edges = 0;
 
     node->coord = coord;
     _init_list(&node->edges);
@@ -227,22 +300,24 @@ static inline void remove_edge(graph_t *graph, edge_t *edge) {
     edge_t *other = edge->swap;
     _remove_entry(&edge->node->edges, edge);
     _remove_entry(&other->node->edges, other);
+    edge->node->n_edges--;
+    other->node->n_edges--;
 
-    graph->edges_available += 2;
+    graph->_edges_available += 2;
     other->next = edge;
-    edge->next = graph->free_edges;
-    graph->free_edges = other;
+    edge->next = graph->_free_edges;
+    graph->_free_edges = other;
 }
 
 static inline void remove_node(graph_t *graph, node_t *node) {
     unsigned int idx = node_id(node->coord) % NODE_INDEX_SIZE;
-    node_t *sibling = graph->index[idx];
+    node_t *sibling = graph->_index[idx];
     if (sibling == node) {
         node_t *next = node->next;
         if (next && idx == node_id(next->coord) % NODE_INDEX_SIZE) {
-            graph->index[idx] = next;
+            graph->_index[idx] = next;
         } else {
-            graph->index[idx] = NULL;
+            graph->_index[idx] = NULL;
         }
     }
 
@@ -251,45 +326,48 @@ static inline void remove_node(graph_t *graph, node_t *node) {
     }
 
     _remove_entry(&graph->nodes, node);
-    _insert_entry(&graph->free_nodes, node);
-    graph->nodes_available++;
+    _insert_entry(&graph->_free_nodes, node);
+    graph->_nodes_available++;
     graph->n_nodes--;
+    graph->_has_changed = true;
 
     int n_blocks = (node->n_subnodes + SUBNODE_BLOCK_SIZE - 1) / SUBNODE_BLOCK_SIZE;
     if (unlikely(n_blocks == 0)) {
         return;
     }
-    graph->blocks_available += n_blocks;
+    graph->_blocks_available += n_blocks;
     subnode_block_t *block = node->subnodes;
     while (n_blocks-- > 1) {
         block = block->next;
     }
-    block->next = graph->free_blocks;
-    graph->free_blocks = node->subnodes;
+    block->next = graph->_free_blocks;
+    graph->_free_blocks = node->subnodes;
 }
 
 static inline edge_t *add_edge(graph_t *graph, node_t *from, node_t *to,
                                direction_t direction) {
-    if (unlikely(graph->edges_available < 2)) {
+    if (unlikely(graph->_edges_available < 2)) {
         return NULL;
     }
 
-    graph->edges_available -= 2;
-    edge_t *from_to = graph->free_edges;
+    graph->_edges_available -= 2;
+    edge_t *from_to = graph->_free_edges;
     edge_t *to_from = from_to->next;
-    graph->free_edges = to_from->next;
+    graph->_free_edges = to_from->next;
 
     from_to->next = from->edges;
     from_to->swap = to_from;
     from_to->node = from;
     from_to->direction = direction;
     from->edges = from_to;
+    from->n_edges++;
 
     to_from->next = to->edges;
     to_from->swap = from_to;
     to_from->node = to;
     to_from->direction = direction;
     to->edges = to_from;
+    to->n_edges++;
 
     return from_to;
 }
