@@ -2,20 +2,20 @@
 #include "graph.h"
 
 graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
-    graph_t* graph = new_graph();
+    graph_t* graph = new_graph(n_cols, n_rows);
     if (unlikely(graph == NULL)) {
         return NULL;
     }
     for (int row = 0; row < n_rows; row++) {
         for (int col = 0; col < n_cols; col++) {
-            coordinate_t coord = {row, col};
+            coordinate_t coord = {col, row};
             node_t* node = add_node(graph, coord, 1);
             if (unlikely(node == NULL)) {
                 return NULL;
             }
             set_subnode(node, 0, (subnode_t){coord, bg_color});
             if (col > 0) {
-                coordinate_t left = {row, col - 1};
+                coordinate_t left = {col - 1, row};
                 node_t* left_node = get_node(graph, left);
                 assert(left_node);
                 edge_t* edge = add_edge(graph, left_node, node, HORIZONTAL);
@@ -24,7 +24,7 @@ graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
                 }
             }
             if (row > 0) {
-                coordinate_t top = {row - 1, col};
+                coordinate_t top = {col, row - 1};
                 node_t* top_node = get_node(graph, top);
                 assert(top_node);
                 edge_t* edge = add_edge(graph, top_node, node, VERTICAL);
@@ -41,7 +41,7 @@ graph_t* graph_from_grid(const color_t* grid, int n_rows, int n_cols) {
     graph_t* graph = new_grid(0, n_rows, n_cols);
     for (int row = 0; row < n_rows; row++) {
         for (int col = 0; col < n_cols; col++) {
-            coordinate_t coord = {row, col};
+            coordinate_t coord = {col, row};
             node_t* node = get_node(graph, coord);
             subnode_t subnode = get_subnode(node, 0);
             subnode.color = grid[row * n_cols + col];
@@ -52,7 +52,7 @@ graph_t* graph_from_grid(const color_t* grid, int n_rows, int n_cols) {
 }
 
 graph_t* get_no_abstraction_graph(const graph_t* in) {
-    graph_t* out = new_graph();
+    graph_t* out = new_graph(in->width, in->height);
     if (unlikely(out == NULL)) {
         return NULL;
     }
@@ -70,7 +70,7 @@ graph_t* get_no_abstraction_graph(const graph_t* in) {
 }
 
 graph_t* subgraph_by_color(const graph_t* in, color_t color) {
-    graph_t* out = new_graph();
+    graph_t* out = new_graph(in->width, in->height);
     for (const node_t* node = in->nodes; node; node = node->next) {
         if (node->n_subnodes == 1) {
             subnode_t subnode = get_subnode(node, 0);
@@ -103,7 +103,7 @@ void _add_neighbors(node_set_t* visited, list_node_t* nodes, const node_t* node,
 }
 
 graph_t* get_connected_components_graph(const graph_t* in) {
-    graph_t* out = new_graph();
+    graph_t* out = new_graph(in->width, in->height);
     for (color_t color = 0; color < 10; color++) {
         graph_t* by_color = subgraph_by_color(in, color);
         node_set_t* visited = new_node_set(by_color->n_nodes);
@@ -162,7 +162,7 @@ graph_t* get_connected_components_graph(const graph_t* in) {
                             }
                         }
                         if (!found) {
-                            add_edge(out, node1, node2, HORIZONTAL);
+                            add_edge(out, node1, node2, VERTICAL);
                             edge_added = true;
                             break;
                         }
@@ -185,7 +185,7 @@ graph_t* get_connected_components_graph(const graph_t* in) {
                             }
                         }
                         if (!found) {
-                            add_edge(out, node1, node2, VERTICAL);
+                            add_edge(out, node1, node2, HORIZONTAL);
                             edge_added = true;
                             break;
                         }

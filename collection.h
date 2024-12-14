@@ -91,7 +91,7 @@ static inline void free_node_list(list_node_t *list) {
     free(list);
 }
 
-static void add_node_to_list(list_node_t *list, const node_t *node) {
+static inline void add_node_to_list(list_node_t *list, const node_t *node) {
     list_node_t *current_list = list;
     while (current_list->next) {
         current_list = current_list->next;
@@ -113,7 +113,7 @@ static inline bool has_iter_value(list_iter_t * iter) {
     return iter->index < iter->list->used || iter->list->next;
 }
 
-static void next_list_iter(list_iter_t *iter) {
+static inline void next_list_iter(list_iter_t *iter) {
     if (iter->index == NODE_LIST_BLOCK_SIZE - 1) {
         iter->list = iter->list->next;
         iter->index = 0;
@@ -122,6 +122,22 @@ static void next_list_iter(list_iter_t *iter) {
         iter->index++;
         iter->node = iter->list->entries[iter->index];
     }
+}
+
+// use a bitset for a set of coordinates
+
+static inline int bitset_size(const graph_t * graph) {
+    return (graph->width * graph->height + 63) / 64;
+}
+
+static inline void add_coordinate(const graph_t * graph, long * bitset, coordinate_t coord) {
+    int index = coord.pri * graph->width + coord.sec;
+    bitset[index / 64] |= 1 << (index % 64);
+}
+
+static inline bool coordinate_in_set(const graph_t * graph, const long * bitset, coordinate_t coord) {
+    int index = coord.pri * graph->width + coord.sec;
+    return bitset[index / 64] & (1 << (index % 64));
 }
 
 #endif  // __COLLECTION_H__

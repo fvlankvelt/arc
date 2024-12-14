@@ -14,9 +14,9 @@
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
 typedef char color_t;
-#define BACKGROUND_COLOR ((color_t) -1)
-#define MOST_COMMON_COLOR ((color_t) -2)
-#define LEAST_COMMON_COLOR ((color_t) -3)
+#define BACKGROUND_COLOR ((color_t) - 1)
+#define MOST_COMMON_COLOR ((color_t) - 2)
+#define LEAST_COMMON_COLOR ((color_t) - 3)
 
 #define MAX_SIZE -1
 #define MIN_SIZE -2
@@ -31,8 +31,8 @@ typedef struct _derived_props {
 } derived_props_t;
 
 typedef struct _coordinate {
-    unsigned short pri;
-    unsigned short sec;
+    short pri;
+    short sec;
 } coordinate_t;
 
 typedef struct _subnode {
@@ -58,14 +58,14 @@ typedef struct _node {
     unsigned short n_edges;
 } node_t;
 
-typedef enum _direction { HORIZONTAL, VERTICAL, OVERLAPPING } direction_t;
+typedef enum _edge_direction { HORIZONTAL, VERTICAL, OVERLAPPING } edge_direction_t;
 
 // premature optimization: fits with partner on a cacheline (64 bytes)
 typedef struct _edge {
     struct _edge *next;
     struct _edge *swap;
     struct _node *node;
-    direction_t direction;
+    edge_direction_t direction;
 } edge_t;
 
 typedef struct _graph {
@@ -80,6 +80,10 @@ typedef struct _graph {
     // derived properties
     bool _has_changed;
     derived_props_t _derived;
+
+    // dimensions
+    unsigned short width;
+    unsigned short height;
 
     // memory management for mutating the graph
     unsigned short n_nodes;
@@ -126,8 +130,11 @@ struct _list_entry {
         }                                                       \
     }
 
-static inline graph_t *new_graph() {
+static inline graph_t *new_graph(unsigned short width, unsigned short height) {
     graph_t *graph = malloc(sizeof(graph_t));
+
+    graph->width = width;
+    graph->height = height;
 
     graph->n_nodes = 0;
     _init_list(&graph->nodes);
@@ -166,6 +173,49 @@ static inline void free_graph(graph_t *graph) {
     free(graph);
 }
 
+static inline subnode_block_t * new_subnode_block(graph_t * graph) {
+    if (graph->_blocks_available == 0) {
+        return NULL;
+    }
+    subnode_block_t * block = graph->_free_blocks;
+    graph->_free_blocks = block->next;
+    block->next = NULL;
+    graph->_blocks_available--;
+    return block;
+}
+
+static inline bool add_subnode_to_block(graph_t * graph, subnode_block_t * block, subnode_t subnode, int * n_subnodes) {
+    subnode_block_t * last_block = block;
+    while (last_block->next) {
+        last_block = last_block->next;
+    }
+    if (*n_subnodes > 0 && (*n_subnodes % SUBNODE_BLOCK_SIZE) == 0) {
+        last_block->next = new_subnode_block(graph);
+        if (unlikely(!last_block->next)) {
+            return false;
+        }
+        last_block = last_block->next;
+    }
+    int idx = (*n_subnodes) % SUBNODE_BLOCK_SIZE;
+    last_block->subnode[idx] = subnode.coord;
+    last_block->color[idx] = subnode.color;
+    (*n_subnodes)++;
+    return true;
+}
+
+static inline void free_subnode_block(graph_t * graph, subnode_block_t * block) {
+    subnode_block_t * last_block = block;
+    int n_blocks = 1;
+    while (last_block->next) {
+        last_block = last_block->next;
+        n_blocks++;
+    }
+    last_block->next = graph->_free_blocks;
+    graph->_free_blocks = block;
+    graph->_blocks_available += n_blocks;
+}
+
+
 // iterate over all nodes
 
 static inline const node_t *first_node(const graph_t *graph) { return graph->nodes; }
@@ -196,6 +246,12 @@ static inline void set_subnode(const node_t *node, int idx, subnode_t subnode) {
     block->color[idx] = subnode.color;
 }
 
+static inline void set_subnodes(graph_t * graph, node_t * node, subnode_block_t * block, int n_subnodes) {
+    free_subnode_block(graph, node->subnodes);
+    node->subnodes = block;
+    node->n_subnodes = n_subnodes;
+}
+
 // lookup
 
 static inline node_t *get_node(const graph_t *graph, coordinate_t coord) {
@@ -210,12 +266,12 @@ static inline node_t *get_node(const graph_t *graph, coordinate_t coord) {
     return NULL;
 }
 
-static inline derived_props_t get_derived_properties(const graph_t*graph) {
-    derived_props_t * props = (derived_props_t *) &graph->_derived;
+static inline derived_props_t get_derived_properties(const graph_t *graph) {
+    derived_props_t *props = (derived_props_t *)&graph->_derived;
     if (graph->_has_changed) {
         int counts[10] = {0};
         int min_size = -1, max_size = -1;
-        for (const node_t * node = graph->nodes; node; node = node->next) {
+        for (const node_t *node = graph->nodes; node; node = node->next) {
             if (min_size < 0 || min_size > node->n_subnodes) {
                 min_size = node->n_subnodes;
             }
@@ -253,7 +309,7 @@ static inline derived_props_t get_derived_properties(const graph_t*graph) {
         }
         props->most_common_color = max;
         props->least_common_color = min;
-        ((graph_t *) graph)->_has_changed = false;
+        ((graph_t *)graph)->_has_changed = false;
     }
     return graph->_derived;
 }
@@ -345,7 +401,7 @@ static inline void remove_node(graph_t *graph, node_t *node) {
 }
 
 static inline edge_t *add_edge(graph_t *graph, node_t *from, node_t *to,
-                               direction_t direction) {
+                               edge_direction_t direction) {
     if (unlikely(graph->_edges_available < 2)) {
         return NULL;
     }

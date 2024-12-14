@@ -6,8 +6,8 @@ CCFLAGS=-ggdb -std=gnu17
 
 all: test
 
-test: test.o image.o filter.o
-	gcc -o test test.o image.o
+test: test.o image.o filter.o transform.o
+	gcc -o test test.o image.o transform.o
 
 clean:
 	rm -f *.o test
