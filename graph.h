@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define NODE_INDEX_SIZE 1024
 #define NODES_ALLOC 1024
@@ -173,19 +174,20 @@ static inline void free_graph(graph_t *graph) {
     free(graph);
 }
 
-static inline subnode_block_t * new_subnode_block(graph_t * graph) {
+static inline subnode_block_t *new_subnode_block(graph_t *graph) {
     if (graph->_blocks_available == 0) {
         return NULL;
     }
-    subnode_block_t * block = graph->_free_blocks;
+    subnode_block_t *block = graph->_free_blocks;
     graph->_free_blocks = block->next;
     block->next = NULL;
     graph->_blocks_available--;
     return block;
 }
 
-static inline bool add_subnode_to_block(graph_t * graph, subnode_block_t * block, subnode_t subnode, int * n_subnodes) {
-    subnode_block_t * last_block = block;
+static inline bool add_subnode_to_block(graph_t *graph, subnode_block_t *block,
+                                        subnode_t subnode, int *n_subnodes) {
+    subnode_block_t *last_block = block;
     while (last_block->next) {
         last_block = last_block->next;
     }
@@ -203,8 +205,8 @@ static inline bool add_subnode_to_block(graph_t * graph, subnode_block_t * block
     return true;
 }
 
-static inline void free_subnode_block(graph_t * graph, subnode_block_t * block) {
-    subnode_block_t * last_block = block;
+static inline void free_subnode_block(graph_t *graph, subnode_block_t *block) {
+    subnode_block_t *last_block = block;
     int n_blocks = 1;
     while (last_block->next) {
         last_block = last_block->next;
@@ -214,7 +216,6 @@ static inline void free_subnode_block(graph_t * graph, subnode_block_t * block) 
     graph->_free_blocks = block;
     graph->_blocks_available += n_blocks;
 }
-
 
 // iterate over all nodes
 
@@ -246,7 +247,8 @@ static inline void set_subnode(const node_t *node, int idx, subnode_t subnode) {
     block->color[idx] = subnode.color;
 }
 
-static inline void set_subnodes(graph_t * graph, node_t * node, subnode_block_t * block, int n_subnodes) {
+static inline void set_subnodes(graph_t *graph, node_t *node, subnode_block_t *block,
+                                int n_subnodes) {
     free_subnode_block(graph, node->subnodes);
     node->subnodes = block;
     node->n_subnodes = n_subnodes;
@@ -426,6 +428,15 @@ static inline edge_t *add_edge(graph_t *graph, node_t *from, node_t *to,
     to->n_edges++;
 
     return from_to;
+}
+
+static inline edge_t *has_edge(node_t *from, node_t *to) {
+    for (edge_t *edge = from->edges; edge; edge = edge->next) {
+        if (edge->swap->node == to) {
+            return edge;
+        }
+    }
+    return NULL;
 }
 
 #endif  // __GRAPH__

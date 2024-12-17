@@ -70,21 +70,23 @@ bool check_collision(const graph_t* graph, node_t* node, subnode_block_t* subnod
     return true;
 }
 
-/*
- * update node color to given color
- */
-void update_color(graph_t* graph, node_t* node, transform_params_t* args) {
-    color_t color = args->color;
+color_t get_color(const graph_t * graph, color_t color) {
     derived_props_t props = get_derived_properties(graph);
     switch (color) {
         case LEAST_COMMON_COLOR:
-            color = props.least_common_color;
-            break;
+            return props.least_common_color;
         case MOST_COMMON_COLOR:
-            color = props.most_common_color;
-            break;
+            return props.most_common_color;
         default:
     }
+    return color;
+}
+
+/*
+ * update node color to given color
+ */
+void update_color(graph_t* graph, node_t* node, transform_arguments_t* args) {
+    color_t color = get_color(graph, args->color);
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t subnode = get_subnode(node, 0);
         subnode.color = color;
@@ -95,7 +97,7 @@ void update_color(graph_t* graph, node_t* node, transform_params_t* args) {
 /*
  * move node by 1 pixel in a given direction
  */
-void move_node(graph_t* graph, node_t* node, transform_params_t* args) {
+void move_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
     dcoord_t delta = deltas[args->direction];
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t subnode = get_subnode(node, i);
@@ -110,7 +112,7 @@ void move_node(graph_t* graph, node_t* node, transform_params_t* args) {
  * if overlap is true, extend node even if it overlaps with another node
  * if overlap is false, stop extending before it overlaps with another node
  */
-void extend_node(graph_t* graph, node_t* node, transform_params_t* args) {
+void extend_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
     dcoord_t delta = deltas[args->direction];
     int max_range = graph->width > graph->height ? graph->width : graph->height;
     subnode_block_t block = {NULL};
@@ -138,3 +140,101 @@ void extend_node(graph_t* graph, node_t* node, transform_params_t* args) {
     }
     set_subnodes(graph, node, new_subnodes, n_new_subnodes);
 }
+ 
+transform_func_t transformations[] = {
+    {
+        .func = update_color,
+        .color = true,
+    },
+    {
+        .func = move_node,
+        .direction = true,
+    },
+    {
+        .func = extend_node,
+        .direction = true,
+        .overlap = true,
+    },
+};
+
+direction_t get_relative_pos(const node_t * node, const node_t * other) {
+    for (int i = 0; i < node->n_subnodes; i++) {
+        subnode_t sub_node = get_subnode(node, i);
+        for (int j = 0; j < other->n_subnodes; j++) {
+            subnode_t sub_other = get_subnode(other, i);
+            if (sub_node.coord.pri == sub_other.coord.pri) {
+                if (sub_node.coord.sec < sub_other.coord.sec) {
+                    return RIGHT;
+                } else if (sub_node.coord.sec > sub_other.coord.sec) {
+                    return LEFT;
+                }
+            } else if (sub_node.coord.sec == sub_other.coord.sec) {
+                if (sub_node.coord.pri < sub_other.coord.pri) {
+                    return UP;
+                } else if (sub_node.coord.pri > sub_other.coord.pri) {
+                    return DOWN;
+                }
+            }
+        }
+    }
+    return NO_DIRECTION;
+}
+
+void apply_binding(const graph_t * graph, const node_t * node, const transform_arg_bindings_t * arg_binding, transform_arguments_t *args) {
+    if (arg_binding->constant_color) {
+        args->color = get_color(graph, arg_binding->constant.color);
+    } else {
+        binding_func_t * binding = arg_binding->color_call.binding;
+        const binding_arguments_t * binding_args = &arg_binding->color_call.args;
+        node_t * target = binding->func(graph, binding_args);
+        args->color = get_subnode(target, 0).color;
+    }
+    if (arg_binding->constant_direction) {
+        args->direction = arg_binding->constant.direction;
+    } else {
+        binding_func_t * binding = arg_binding->direction_call.binding;
+        const binding_arguments_t * binding_args = &arg_binding->direction_call.args;
+        node_t * target = binding->func(graph, binding_args);
+        args->direction = get_relative_pos(node, target);
+    }
+    args->overlap = arg_binding->constant.overlap;
+}
+
+/*
+typedef struct _multiset_entry {
+    struct _multiset_entry * next;
+    node_t * node;
+} multiset_entry_t;
+
+typedef struct _multiset {
+    multiset_entry_t * index[1024];
+    multiset_entry_t entries[1024];
+} multiset_t;
+
+void update_edges(graph_t * graph) {
+    multiset_t multiset;
+    for (int i = 0; i < 1024; i++) {
+        multiset.index[i] = NULL;
+    }
+    int subnode_count = 0;
+    for (node_t * node = graph->nodes; node; node = node->next) {
+        for (int i = 0; i < node->n_subnodes; i++) {
+            coordinate_t coord = get_subnode(node, i).coord;
+            int idx = 32 * coord.pri + coord.sec;
+            multiset_entry_t * current = multiset.index[idx];
+            multiset_entry_t * entry = &multiset.entries[subnode_count++];
+            entry->next = current;
+            multiset.index[idx] = entry;
+        }
+    }
+    for (int i = 0; i < 1024; i++) {
+        for (multiset_entry_t * entry = multiset.index[i]; entry; entry = entry->next) {
+            for (multiset_entry_t * other = entry->next; other; other = other->next) {
+                if (!has_edge(entry->node, other->node)) {
+                    add_edge(graph, entry->node, other->node, OVERLAPPING);
+                }
+            }
+        }
+    }
+}
+*/

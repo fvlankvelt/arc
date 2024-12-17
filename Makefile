@@ -4,13 +4,16 @@ CCFLAGS=-ggdb -std=gnu17
 %.o: %.c *.h
 	gcc ${CCFLAGS} -c $< 
 
-all: test
+all: test_graph test_transform
 
-test: test.o image.o filter.o transform.o
-	gcc -o test test.o image.o transform.o
+test_graph: test_graph.o image.o filter.o transform.o
+	gcc -o test_graph test_graph.o image.o transform.o
+
+test_transform: test_transform.o image.o filter.o transform.o
+	gcc -o test_transform test_transform.o image.o transform.o
 
 clean:
-	rm -f *.o test
+	rm -f *.o test_graph test_transform
 
-run: test
-	./test
+run: test_graph test_transform
+	./test_graph && ./test_transform

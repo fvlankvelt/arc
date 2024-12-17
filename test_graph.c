@@ -2,26 +2,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "test.h"
 #include "graph.h"
 #include "image.h"
 #include "transform.h"
 
-#define ASSERT(stmt, msg) \
-    if (!(stmt)) {        \
-        printf(msg);      \
-        printf("\n");     \
-        return false;     \
-    }
+extern node_t * bind_node_by_size(const graph_t * graph, const binding_arguments_t * params);
+extern node_t * bind_neighbor_by_size(const graph_t * graph, const binding_arguments_t * params);
+extern node_t * bind_neighbor_by_color(const graph_t * graph, const binding_arguments_t * params);
+extern node_t * bind_neighbor_by_degree(const graph_t * graph, const binding_arguments_t * params);
 
-bool test_image() {
+DEFINE_TEST(test_image, ({
     color_t grid[] = {2, 2, 1, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
     ASSERT(graph->n_nodes == 4, "n_nodes incorrect");
     free_graph(graph);
-    return true;
-}
+}))
 
-bool test_mutate_graph() {
+DEFINE_TEST(test_mutate_graph, ({
     color_t grid[] = {2, 2, 1, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
     node_t* node = get_node(graph, (coordinate_t){0, 0});
@@ -49,10 +47,9 @@ bool test_mutate_graph() {
     ASSERT(!top_right->edges->next, "More than 1 edge found");
 
     free_graph(graph);
-    return true;
-}
+}))
 
-bool test_no_abstraction() {
+DEFINE_TEST(test_no_abstraction, ({
     color_t grid[] = {2, 2, 1, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
     graph_t* no_abstract = get_no_abstraction_graph(graph);
@@ -62,10 +59,9 @@ bool test_no_abstraction() {
     ASSERT(node->n_subnodes == 4, "n_subnodes incorrect");
     free_graph(graph);
     free_graph(no_abstract);
-    return true;
-}
+}))
 
-bool test_subgraph_by_color() {
+DEFINE_TEST(test_subgraph_by_color, ({
     color_t grid[] = {2, 2, 1, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
 
@@ -82,10 +78,9 @@ bool test_subgraph_by_color() {
     free_graph(by_color);
 
     free_graph(graph);
-    return true;
-}
+}))
 
-bool test_connected_components() {
+DEFINE_TEST(test_connected_components, ({
     // clang-format off
     color_t grid[] = {
       2, 2, 0,
@@ -116,104 +111,12 @@ bool test_connected_components() {
     free_graph(connected);
 
     free_graph(graph);
-    return true;
-}
+}))
 
-bool test_update_color() {
-    // clang-format off
-    color_t grid[] = {
-      2, 2, 0,
-      2, 0, 0,
-      2, 0, 2,
-    };
-    // clang-format on
-    graph_t* graph = graph_from_grid(grid, 3, 3);
-    transform_params_t params = {
-        .color = 1
-    };
-    node_t * node = get_node(graph, (coordinate_t) {0, 0});
-    update_color(graph, node, &params);
-    subnode_t subnode = get_subnode(node, 0);
-    ASSERT(subnode.color == 1, "color is not updates");
-    free_graph(graph);
-    return true;
-}
-
-bool test_move_node() {
-    // clang-format off
-    color_t grid[] = {
-      2, 2, 0,
-      2, 0, 0,
-      2, 0, 2,
-    };
-    // clang-format on
-    graph_t* graph = graph_from_grid(grid, 3, 3);
-    transform_params_t params = {
-        .direction = LEFT
-    };
-    node_t * node = get_node(graph, (coordinate_t) {2, 2});
-    move_node(graph, node, &params);
-    subnode_t subnode = get_subnode(node, 0);
-    ASSERT(subnode.coord.pri == 1 && subnode.coord.sec == 2, "pixel has not moved");
-    free_graph(graph);
-    return true;
-}
-
-bool test_extend_node() {
-    // clang-format off
-    color_t grid[] = {
-      1, 0, 0,
-      0, 0, 0,
-      0, 0, 2,
-    };
-    // clang-format on
-    graph_t* graph = graph_from_grid(grid, 3, 3);
-    transform_params_t params = {
-        .direction = UP_LEFT,
-        .overlap = false,
-    };
-
-    // remove background
-    node_t * next_node;
-    for (node_t * node = graph->nodes; node; node = next_node) {
-        next_node = node->next;
-        if (!get_subnode(node, 0).color) {
-            remove_node(graph, node);
-        }
-    }
-
-    node_t * node = get_node(graph, (coordinate_t) {2, 2});
-    extend_node(graph, node, &params);
-    ASSERT(node->n_subnodes == 2, "node has not been extended");
-    subnode_t subnode = get_subnode(node, 0);
-    ASSERT(subnode.coord.pri == 2 && subnode.coord.sec == 2, "existing pixel is gone");
-    subnode = get_subnode(node, 1);
-    ASSERT(subnode.coord.pri == 1 && subnode.coord.sec == 1, "new pixel not added");
-
-    node_t * cst = get_node(graph, (coordinate_t) {0, 0});
-    subnode = get_subnode(cst, 0);
-    ASSERT(subnode.color == 1, "top-left node has wrong color");
-    free_graph(graph);
-    return true;
-}
-
-int main() {
-    bool result = true;
-
-    result &= test_image();
-    result &= test_mutate_graph();
-    result &= test_no_abstraction();
-    result &= test_subgraph_by_color();
-    result &= test_connected_components();
-    result &= test_update_color();
-    result &= test_move_node();
-    result &= test_extend_node();
-
-    if (result) {
-        printf("PASS\n");
-        return 0;
-    } else {
-        printf("FAIL\n");
-        return 1;
-    }
-}
+RUN_SUITE(graph, {
+    RUN_TEST(test_image);
+    RUN_TEST(test_mutate_graph);
+    RUN_TEST(test_no_abstraction);
+    RUN_TEST(test_subgraph_by_color);
+    RUN_TEST(test_connected_components);
+})
