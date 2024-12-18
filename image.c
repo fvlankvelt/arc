@@ -136,8 +136,9 @@ graph_t* get_connected_components_graph(const graph_t* in) {
         free_graph(by_color);
     }
 
+    derived_props_t props = get_derived_properties(in);
     for (node_t* node1 = out->nodes; node1; node1 = node1->next) {
-        for (node_t* node2 = out->nodes; node2; node2 = node2->next) {
+        for (node_t* node2 = node1->next; node2; node2 = node2->next) {
             bool edge_added = false;
             for (int sub_1 = 0; !edge_added && sub_1 < node1->n_subnodes; sub_1++) {
                 for (int sub_2 = 0; !edge_added && sub_2 < node2->n_subnodes; sub_2++) {
@@ -156,7 +157,7 @@ graph_t* get_connected_components_graph(const graph_t* in) {
                         }
                         for (int sec = min + 1; sec < max; sec++) {
                             const node_t* orig_node = get_node(in, (coordinate_t){pri, sec});
-                            if (get_subnode(orig_node, 0).color != 0) {
+                            if (get_subnode(orig_node, 0).color != props.background_color) {
                                 found = true;
                                 break;
                             }
@@ -179,7 +180,7 @@ graph_t* get_connected_components_graph(const graph_t* in) {
                         }
                         for (int pri = min + 1; pri < max; pri++) {
                             const node_t* orig_node = get_node(in, (coordinate_t){pri, sec});
-                            if (get_subnode(orig_node, 0).color != 0) {
+                            if (get_subnode(orig_node, 0).color != props.background_color) {
                                 found = true;
                                 break;
                             }

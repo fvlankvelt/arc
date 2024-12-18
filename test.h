@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define ASSERT(stmt, msg) \
-    if (!(stmt)) {        \
-        printf(msg);      \
-        printf("\n");     \
-        return false;     \
+#define ASSERT(stmt, msg)                \
+    if (!(stmt)) {                       \
+        printf("%s (line %d)", msg, __LINE__); \
+        printf("\n");                    \
+        return false;                    \
     }
 
 #define DEFINE_TEST(name, body)       \

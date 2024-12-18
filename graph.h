@@ -289,16 +289,14 @@ static inline derived_props_t get_derived_properties(const graph_t *graph) {
         props->min_size = min_size;
 
         int max = 0, min = 0;
-        int n_max = -1, n_min = -1;
-        for (int i = 0; i < 10; i++) {
+        int n_max = counts[0], n_min = counts[0];
+        for (int i = 1; i < 10; i++) {
             if (counts[i] > 0) {
-                if (n_max < 0) {
-                    n_max = n_min = counts[i];
-                    max = min = i;
-                } else if (n_max < counts[i]) {
+                if (n_max <= counts[i]) {
                     max = i;
                     n_max = counts[i];
-                } else if (n_min > counts[i]) {
+                }
+                if (n_min >= counts[i]) {
                     min = i;
                     n_min = counts[i];
                 }

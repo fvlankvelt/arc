@@ -1,4 +1,5 @@
 test_graph
 test_transform
+test_filter
 *.o
 .vscode/
