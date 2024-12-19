@@ -111,7 +111,7 @@ DEFINE_TEST(test_filter_by_degree, ({
     free_graph(graph);
 }))
 
-RUN_SUITE(filter, ({
+RUN_SUITE(test_filter, ({
     RUN_TEST(test_filter_by_color);
     RUN_TEST(test_filter_by_derived_colors);
     RUN_TEST(test_filter_by_size);

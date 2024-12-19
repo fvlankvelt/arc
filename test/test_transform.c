@@ -85,7 +85,7 @@ DEFINE_TEST(test_extend_node, ({
     free_graph(graph);
 }))
 
-RUN_SUITE(transform, ({
+RUN_SUITE(test_transform, ({
     RUN_TEST(test_update_color);
     RUN_TEST(test_move_node);
     RUN_TEST(test_extend_node);

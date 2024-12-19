@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define ASSERT(stmt, msg)                \
-    if (!(stmt)) {                       \
+#define ASSERT(stmt, msg)                      \
+    if (!(stmt)) {                             \
         printf("%s (line %d)", msg, __LINE__); \
-        printf("\n");                    \
-        return false;                    \
+        printf("\n");                          \
+        return false;                          \
     }
 
 #define DEFINE_TEST(name, body)       \
@@ -19,15 +19,15 @@
 #define RUN_TEST(name) result &= name()
 
 #define RUN_SUITE(suite, body)          \
-    int main() {                        \
+    bool suite() {                      \
         bool result = true;             \
         printf("Testing %s\n", #suite); \
         body;                           \
         if (result) {                   \
             printf("OK\n");             \
-            return 0;                   \
+            return true;                \
         } else {                        \
             printf("FAIL\n");           \
-            return 1;                   \
+            return false;               \
         }                               \
     }

@@ -113,7 +113,7 @@ DEFINE_TEST(test_connected_components, ({
     free_graph(graph);
 }))
 
-RUN_SUITE(graph, {
+RUN_SUITE(test_graph, {
     RUN_TEST(test_image);
     RUN_TEST(test_mutate_graph);
     RUN_TEST(test_no_abstraction);
