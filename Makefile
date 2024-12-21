@@ -19,6 +19,9 @@ BINDIR := bin
 test: $(BINDIR)/test
 	$(BINDIR)/test
 
+clean:
+	rm -rf $(OBJDIR) $(TEST_OBJDIR)
+
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
 

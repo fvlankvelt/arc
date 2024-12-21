@@ -94,6 +94,9 @@ filter_func_t filter_funcs[] = {
         .degree = true,
         .exclude = true,
     },
+    {
+        .func = NULL,
+    }
 };
 
 bool apply_filter(const graph_t * graph, const node_t * node, const filter_call_t * call) {

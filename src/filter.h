@@ -23,7 +23,7 @@ extern filter_func_t filter_funcs[];
 
 typedef struct _filter_call {
     struct _filter_call * next;
-    filter_func_t * filter;
+    const filter_func_t * filter;
     filter_arguments_t args;
 } filter_call_t;
 

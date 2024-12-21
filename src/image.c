@@ -1,5 +1,6 @@
 #include "collection.h"
 #include "graph.h"
+#include "image.h"
 
 graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
     graph_t* graph = new_graph(n_cols, n_rows);
@@ -197,3 +198,12 @@ graph_t* get_connected_components_graph(const graph_t* in) {
     }
     return out;
 }
+
+abstraction_t abstractions[] = {
+    {
+        .func = get_no_abstraction_graph,
+    },
+    {
+        .func = get_connected_components_graph,
+    }
+};
