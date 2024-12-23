@@ -21,7 +21,7 @@ DEFINE_TEST(test_get_candidate_filters, ({
     for (filter_call_t * call = calls; call; call = call->next) {
         count++;
     }
-    ASSERT(count == 105, "Number of calls does not match");
+    ASSERT(count == 231, "Number of calls does not match");
     free_graph(graph);
 }))
 

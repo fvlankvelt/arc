@@ -64,6 +64,14 @@ filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstract
 
     filter_argument_values_t arg_vals = {0};
 
+    arg_vals.size[0] = MAX_SIZE;
+    arg_vals.size[1] = MIN_SIZE;
+    arg_vals.size[2] = ODD_SIZE;
+    arg_vals.n_size = 3;
+    arg_vals.degree[0] = MAX_SIZE;
+    arg_vals.degree[1] = MIN_SIZE;
+    arg_vals.degree[2] = ODD_SIZE;
+    arg_vals.n_degree = 3;
     for (int i_train = 0; i_train < task->n_train; i_train++) {
         const graph_t* graph = abstracted_graphs[i_train];
         for (const node_t* node = graph->nodes; node; node = node->next) {
