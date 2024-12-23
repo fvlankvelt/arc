@@ -25,13 +25,13 @@ clean:
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
 
-$(OBJDIR)/%.o: $(SOURCEDIR)/%.c Makefile | $(OBJDIR)
+$(OBJDIR)/%.o: $(SOURCEDIR)/%.c $(SOURCEDIR)/*.h Makefile | $(OBJDIR)
 	$(CC) $(CCFLAGS) $(INC) -c $< -o $@
 
 $(TEST_OBJDIR):
 	mkdir -p $(TEST_OBJDIR)
 
-$(TEST_OBJDIR)/%.o: $(TESTDIR)/%.c Makefile | $(TEST_OBJDIR)
+$(TEST_OBJDIR)/%.o: $(TESTDIR)/%.c $(SOURCEDIR)/*.h $(TESTDIR)/*.h Makefile | $(TEST_OBJDIR)
 	$(CC) $(CCFLAGS) $(TEST_INC) -c $< -o $@
 
 $(BINDIR):
