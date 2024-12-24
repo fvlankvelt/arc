@@ -1,5 +1,6 @@
 #include <stdbool.h>
 
+#include "binding.h"
 #include "transform.h"
 #include "collection.h"
 
@@ -144,16 +145,22 @@ void extend_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
 transform_func_t transformations[] = {
     {
         .func = update_color,
-        .color = true,
+        .flags = {
+            .color = true,
+        }
     },
     {
         .func = move_node,
-        .direction = true,
+        .flags = {
+            .direction = true,
+        }
     },
     {
         .func = extend_node,
-        .direction = true,
-        .overlap = true,
+        .flags = {
+            .direction = true,
+            .overlap = true,
+        }
     },
 };
 
@@ -180,24 +187,24 @@ direction_t get_relative_pos(const node_t * node, const node_t * other) {
     return NO_DIRECTION;
 }
 
-void apply_binding(const graph_t * graph, const node_t * node, const transform_arg_bindings_t * arg_binding, transform_arguments_t *args) {
-    if (arg_binding->constant_color) {
-        args->color = get_color(graph, arg_binding->constant.color);
+void apply_binding(const graph_t * graph, const node_t * node, const transform_binding_t * arg_binding, transform_arguments_t *args) {
+    if (arg_binding->constant_flags.color) {
+        args->color = get_color(graph, arg_binding->constant_values.color);
     } else {
         binding_func_t * binding = arg_binding->color_call.binding;
         const binding_arguments_t * binding_args = &arg_binding->color_call.args;
         node_t * target = binding->func(graph, binding_args);
         args->color = get_subnode(target, 0).color;
     }
-    if (arg_binding->constant_direction) {
-        args->direction = arg_binding->constant.direction;
+    if (arg_binding->constant_flags.direction) {
+        args->direction = arg_binding->constant_values.direction;
     } else {
         binding_func_t * binding = arg_binding->direction_call.binding;
         const binding_arguments_t * binding_args = &arg_binding->direction_call.args;
         node_t * target = binding->func(graph, binding_args);
         args->direction = get_relative_pos(node, target);
     }
-    args->overlap = arg_binding->constant.overlap;
+    args->overlap = arg_binding->constant_values.overlap;
 }
 
 /*

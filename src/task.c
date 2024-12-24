@@ -1,21 +1,13 @@
+#include "task.h"
+
+#include "binding.h"
 #include "filter.h"
 #include "graph.h"
 #include "image.h"
 #include "mem.h"
-#include "task.h"
+#include "transform.h"
 
 #define MAX_ARGUMENT_VALUES 20
-
-typedef struct _filter_argument_values {
-    int n_size;
-    int n_degree;
-    int n_exclude;
-    int n_color;
-    int size[MAX_ARGUMENT_VALUES];
-    int degree[MAX_ARGUMENT_VALUES];
-    bool exclude[2];
-    color_t color[13];
-} filter_argument_values_t;
 
 // #define handle_value(b, i, n) (!(i) || ((b) && (i) < (n)))
 // for (int i_size = 0; handle_value(def->size, i_size, arg_vals.n_size); i_size++) {
@@ -30,10 +22,12 @@ task_t* new_task() {
     task->n_train = 0;
     task->n_test = 0;
     task->_mem_filter_calls = new_block(256, sizeof(filter_call_t));
+    task->_mem_binding_calls = new_block(256, sizeof(binding_call_t));
     return task;
 }
 
-void free_task(task_t * task) {
+void free_task(task_t* task) {
+    free_block(task->_mem_binding_calls);
     free_block(task->_mem_filter_calls);
     free(task);
 }
@@ -62,7 +56,16 @@ filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstract
         abstracted_graphs[i_train] = abstraction->func(task->train_input[i_train]);
     }
 
-    filter_argument_values_t arg_vals = {0};
+    struct {
+        int n_size;
+        int n_degree;
+        int n_exclude;
+        int n_color;
+        int size[MAX_ARGUMENT_VALUES];
+        int degree[MAX_ARGUMENT_VALUES];
+        bool exclude[2];
+        color_t color[13];
+    } arg_vals = {0};
 
     arg_vals.size[0] = MAX_SIZE;
     arg_vals.size[1] = MIN_SIZE;
@@ -103,11 +106,12 @@ filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstract
     arg_vals.exclude[0] = true;
     arg_vals.exclude[1] = false;
 
+    arg_vals.n_color = 2;
+    arg_vals.color[0] = MOST_COMMON_COLOR;
+    arg_vals.color[1] = LEAST_COMMON_COLOR;
     for (color_t color = 0; color < 10; color++) {
         arg_vals.color[arg_vals.n_color++] = color;
     }
-    arg_vals.color[arg_vals.n_color++] = MOST_COMMON_COLOR;
-    arg_vals.color[arg_vals.n_color++] = LEAST_COMMON_COLOR;
 
     // TODO: dedupe filters that return the same set of nodes
     filter_call_t* result = NULL;
@@ -159,5 +163,33 @@ filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstract
         }
     }
 
+    return result;
+}
+
+binding_call_t* generate_parameters(const task_t* task, const filter_call_t* call,
+                                    const transform_func_t* transform) {
+    struct {
+        int n_color;
+        int n_direction;
+        int n_rotation;
+        int n_overlap;
+        color_t color[13];
+        direction_t direction[9];
+        rotation_t rotation[3];
+        bool overlap[2];
+    } arg_vals = {0};
+
+    arg_vals.n_color = 2;
+    arg_vals.color[0] = MOST_COMMON_COLOR;
+    arg_vals.color[1] = LEAST_COMMON_COLOR;
+    for (color_t color = 0; color < 10; color++) {
+        arg_vals.color[arg_vals.n_color++] = color;
+    }
+
+    arg_vals.n_overlap = 2;
+    arg_vals.overlap[0] = true;
+    arg_vals.overlap[1] = false;
+
+    binding_call_t * result = NULL;
     return result;
 }

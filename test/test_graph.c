@@ -6,6 +6,7 @@
 #include "graph.h"
 #include "image.h"
 #include "transform.h"
+#include "binding.h"
 
 extern node_t * bind_node_by_size(const graph_t * graph, const binding_arguments_t * params);
 extern node_t * bind_neighbor_by_size(const graph_t * graph, const binding_arguments_t * params);

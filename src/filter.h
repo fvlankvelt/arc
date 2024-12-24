@@ -29,28 +29,8 @@ typedef struct _filter_call {
 
 bool apply_filter(const graph_t * graph, const node_t * node, const filter_call_t * call);
 
-typedef struct _binding_arguments {
-    node_t * node;
-    int size;
-    int degree;
-    bool exclude;
-    color_t color;
-} binding_arguments_t;
-
-typedef struct _binding_func {
-    node_t * (*func)(const graph_t *, const binding_arguments_t *);
-    bool node;
-    bool size;
-    bool degree;
-    bool exclude;
-    bool color;
-} binding_func_t;
-
-extern binding_func_t binding_funcs[];
-
-typedef struct _binding_call {
-    binding_func_t * binding;
-    binding_arguments_t args;
-} binding_call_t;
+bool filter_by_size(const graph_t* graph, const node_t* node, const filter_arguments_t* args);
+bool filter_by_color(const graph_t* graph, const node_t* node, const filter_arguments_t* args);
+bool filter_by_degree(const graph_t* graph, const node_t* node, const filter_arguments_t* args);
 
 #endif // __FILTER_H__
