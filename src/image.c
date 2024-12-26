@@ -19,7 +19,7 @@ graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
                 coordinate_t left = {col - 1, row};
                 node_t* left_node = get_node(graph, left);
                 assert(left_node);
-                edge_t* edge = add_edge(graph, left_node, node, HORIZONTAL);
+                edge_t* edge = add_edge(graph, left_node, node, EDGE_HORIZONTAL);
                 if (unlikely(!edge)) {
                     return NULL;
                 }
@@ -28,7 +28,7 @@ graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
                 coordinate_t top = {col, row - 1};
                 node_t* top_node = get_node(graph, top);
                 assert(top_node);
-                edge_t* edge = add_edge(graph, top_node, node, VERTICAL);
+                edge_t* edge = add_edge(graph, top_node, node, EDGE_VERTICAL);
                 if (unlikely(!edge)) {
                     return NULL;
                 }
@@ -78,7 +78,7 @@ graph_t* subgraph_by_color(const graph_t* in, color_t color) {
             if (subnode.color == color) {
                 node_t* new_node = add_node(out, node->coord, 1);
                 for (const edge_t* edge = node->edges; edge; edge = edge->next) {
-                    const node_t* other = edge->swap->node;
+                    const node_t* other = edge->peer;
                     node_t* new_other = get_node(out, other->coord);
                     if (new_other) {
                         add_edge(out, new_node, new_other, edge->direction);
@@ -92,10 +92,10 @@ graph_t* subgraph_by_color(const graph_t* in, color_t color) {
 
 void _add_neighbors(node_set_t* visited, list_node_t* nodes, const node_t* node, int* count) {
     for (const edge_t* edge = node->edges; edge; edge = edge->next) {
-        if (is_node_in_set(visited, edge->swap->node)) {
+        if (is_node_in_set(visited, edge->peer)) {
             continue;
         }
-        node_t* peer = edge->swap->node;
+        node_t* peer = edge->peer;
         add_node_to_set(visited, peer);
         add_node_to_list(nodes, peer);
         (*count)++;
@@ -164,7 +164,7 @@ graph_t* get_connected_components_graph(const graph_t* in) {
                             }
                         }
                         if (!found) {
-                            add_edge(out, node1, node2, VERTICAL);
+                            add_edge(out, node1, node2, EDGE_VERTICAL);
                             edge_added = true;
                             break;
                         }
@@ -187,7 +187,7 @@ graph_t* get_connected_components_graph(const graph_t* in) {
                             }
                         }
                         if (!found) {
-                            add_edge(out, node1, node2, HORIZONTAL);
+                            add_edge(out, node1, node2, EDGE_HORIZONTAL);
                             edge_added = true;
                             break;
                         }

@@ -1,8 +1,9 @@
 #include <stdbool.h>
+#include <string.h>
 
+#include "collection.h"
 #include "binding.h"
 #include "transform.h"
-#include "collection.h"
 
 typedef struct _dcoord {
     signed short dx;
@@ -10,7 +11,14 @@ typedef struct _dcoord {
 } dcoord_t;
 
 dcoord_t deltas[] = {
-    {0, -1}, {0, 1}, {-1, 0}, {1, 0}, {-1, -1}, {-1, 1}, {1, -1}, {1, 1},
+    {0, -1},
+    {0, 1},
+    {-1, 0},
+    {1, 0},
+    {-1, -1},
+    {-1, 1},
+    {1, -1},
+    {1, 1},
 };
 
 typedef struct _subnode_iter {
@@ -19,7 +27,8 @@ typedef struct _subnode_iter {
     const subnode_block_t* block;
 } subnode_iter_t;
 
-coordinate_t init_subnode_iter(subnode_iter_t* iter, const subnode_block_t* subnodes, int n_subnodes) {
+coordinate_t init_subnode_iter(
+    subnode_iter_t* iter, const subnode_block_t* subnodes, int n_subnodes) {
     iter->n_subnodes = n_subnodes;
     iter->block = subnodes;
     iter->i = 0;
@@ -44,8 +53,8 @@ static inline bool check_bounds(const graph_t* graph, coordinate_t coord) {
            coord.sec < graph->height;
 }
 
-bool check_collision(const graph_t* graph, node_t* node, subnode_block_t* subnodes,
-                            int n_subnodes) {
+bool check_collision(
+    const graph_t* graph, node_t* node, subnode_block_t* subnodes, int n_subnodes) {
     int size = bitset_size(graph);
     long bitset[size];
     for (int i = 0; i < size; i++) {
@@ -71,7 +80,7 @@ bool check_collision(const graph_t* graph, node_t* node, subnode_block_t* subnod
     return true;
 }
 
-color_t get_color(const graph_t * graph, color_t color) {
+color_t get_color(const graph_t* graph, color_t color) {
     derived_props_t props = get_derived_properties(graph);
     switch (color) {
         case LEAST_COMMON_COLOR:
@@ -118,14 +127,13 @@ void extend_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
     int max_range = graph->width > graph->height ? graph->width : graph->height;
     subnode_block_t block = {NULL};
     int n_new_subnodes = 0;
-    subnode_block_t * new_subnodes = new_subnode_block(graph);
+    subnode_block_t* new_subnodes = new_subnode_block(graph);
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t subnode = get_subnode(node, i);
         coordinate_t new_coord = subnode.coord;
         for (int r = 0; r < max_range; r++) {
-            bool added = add_subnode_to_block(graph, new_subnodes, (subnode_t) {
-                new_coord, subnode.color
-            }, &n_new_subnodes);
+            bool added = add_subnode_to_block(
+                graph, new_subnodes, (subnode_t){new_coord, subnode.color}, &n_new_subnodes);
             assert(added);
             new_coord.pri += delta.dx;
             new_coord.sec += delta.dy;
@@ -141,30 +149,24 @@ void extend_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
     }
     set_subnodes(graph, node, new_subnodes, n_new_subnodes);
 }
- 
+
 transform_func_t transformations[] = {
     {
         .func = update_color,
-        .flags = {
-            .color = true,
-        }
+        .color = true,
     },
     {
         .func = move_node,
-        .flags = {
-            .direction = true,
-        }
+        .direction = true,
     },
     {
         .func = extend_node,
-        .flags = {
-            .direction = true,
-            .overlap = true,
-        }
+        .direction = true,
+        .overlap = true,
     },
 };
 
-direction_t get_relative_pos(const node_t * node, const node_t * other) {
+direction_t get_relative_pos(const node_t* node, const node_t* other) {
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t sub_node = get_subnode(node, i);
         for (int j = 0; j < other->n_subnodes; j++) {
@@ -187,24 +189,74 @@ direction_t get_relative_pos(const node_t * node, const node_t * other) {
     return NO_DIRECTION;
 }
 
-void apply_binding(const graph_t * graph, const node_t * node, const transform_binding_t * arg_binding, transform_arguments_t *args) {
-    if (arg_binding->constant_flags.color) {
-        args->color = get_color(graph, arg_binding->constant_values.color);
-    } else {
-        binding_func_t * binding = arg_binding->color_call.binding;
-        const binding_arguments_t * binding_args = &arg_binding->color_call.args;
-        node_t * target = binding->func(graph, binding_args);
+coordinate_t get_centroid(const node_t* node) {
+    int sum_pri = node->n_subnodes / 2;
+    int sum_sec = node->n_subnodes / 2;
+    for (int i = 0; i < node->n_subnodes; i++) {
+        subnode_t subnode = get_subnode(node, i);
+        sum_pri += subnode.coord.pri;
+        sum_sec += subnode.coord.sec;
+    }
+    return (coordinate_t){
+        .pri = sum_pri / node->n_subnodes,
+        .sec = sum_sec / node->n_subnodes,
+    };
+}
+
+mirror_axis_t get_mirror_axis(const node_t* node, const node_t* other) {
+    coordinate_t centroid = get_centroid(other);
+    for (const edge_t* edge = node->edges; edge; edge = edge->next) {
+        if (edge->peer == other) {
+            switch (edge->direction) {
+                case EDGE_VERTICAL:
+                    return (mirror_axis_t){
+                        .orientation = ORIENTATION_VERTICAL,
+                        .coord = centroid,
+                    };
+                default:
+                    return (mirror_axis_t){
+                        .orientation = ORIENTATION_HORIZONTAL,
+                        .coord = centroid,
+                    };
+            }
+        }
+    }
+    // TODO: is this really the intention?
+    return (mirror_axis_t){
+        .orientation = ORIENTATION_HORIZONTAL,
+        .coord = centroid,
+    };
+}
+
+void copy_arguments(const transform_arguments_t* from, transform_arguments_t* to) {
+    memcpy(to, from, sizeof(transform_arguments_t));
+}
+
+void apply_binding(
+    const graph_t* graph,
+    const node_t* node,
+    const transform_dynamic_arguments_t* dynamic,
+    transform_arguments_t* args) {
+    if (dynamic->color) {
+        binding_call_t* binding = dynamic->color;
+        node_t* target = get_binding_node(graph, node, binding);
         args->color = get_subnode(target, 0).color;
     }
-    if (arg_binding->constant_flags.direction) {
-        args->direction = arg_binding->constant_values.direction;
-    } else {
-        binding_func_t * binding = arg_binding->direction_call.binding;
-        const binding_arguments_t * binding_args = &arg_binding->direction_call.args;
-        node_t * target = binding->func(graph, binding_args);
+    if (dynamic->direction) {
+        binding_call_t* binding = dynamic->direction;
+        node_t* target = get_binding_node(graph, node, binding);
         args->direction = get_relative_pos(node, target);
     }
-    args->overlap = arg_binding->constant_values.overlap;
+    if (dynamic->mirror_axis) {
+        binding_call_t* binding = dynamic->mirror_axis;
+        node_t* target = get_binding_node(graph, node, binding);
+        args->mirror_axis = get_mirror_axis(node, target);
+    }
+    if (dynamic->point) {
+        binding_call_t* binding = dynamic->point;
+        node_t* target = get_binding_node(graph, node, binding);
+        args->point = get_centroid(target);
+    }
 }
 
 /*
@@ -238,7 +290,7 @@ void update_edges(graph_t * graph) {
         for (multiset_entry_t * entry = multiset.index[i]; entry; entry = entry->next) {
             for (multiset_entry_t * other = entry->next; other; other = other->next) {
                 if (!has_edge(entry->node, other->node)) {
-                    add_edge(graph, entry->node, other->node, OVERLAPPING);
+                    add_edge(graph, entry->node, other->node, EDGE_OVERLAPPING);
                 }
             }
         }

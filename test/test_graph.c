@@ -101,14 +101,14 @@ DEFINE_TEST(test_connected_components, ({
     bool linked = false;
     edge_direction_t direction;
     for (const edge_t* edge = first_component->edges; edge; edge = edge->next) {
-        if (edge->swap->node == other) {
+        if (edge->peer == other) {
             linked = true;
             direction = edge->direction;
             break;
         }
     }
     ASSERT(linked, "components are not linked");
-    ASSERT(direction == HORIZONTAL, "orientation is incorrect");
+    ASSERT(direction == EDGE_HORIZONTAL, "orientation is incorrect");
     free_graph(connected);
 
     free_graph(graph);

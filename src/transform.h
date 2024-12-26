@@ -3,6 +3,7 @@
 
 #include "graph.h"
 #include "filter.h"
+#include "binding.h"
 
 typedef enum _direction {
     NO_DIRECTION = -1,
@@ -51,22 +52,15 @@ typedef enum _object_property {
     HOLLOW
 } object_property_t;
 
-typedef struct _mirror_axis {
-    bool orientation;
-    short distance; 
-} mirror_axis_t;
+typedef enum _orientation {
+    ORIENTATION_HORIZONTAL,
+    ORIENTATION_VERTICAL
+} orientation_t;
 
-typedef struct _transform_argument_flags {
-    bool color;
-    bool direction;
-    bool overlap;
-    bool rotation_dir;
-    bool mirror_axis;
-    bool mirror_direction;
-    bool object_id;
-    bool point;
-    bool relative_pos;
-} transform_argument_flags_t;
+typedef struct _mirror_axis {
+    orientation_t orientation;
+    coordinate_t coord;
+} mirror_axis_t;
 
 typedef struct _transform_arguments {
     color_t color;
@@ -80,9 +74,30 @@ typedef struct _transform_arguments {
     relative_position_t relative_pos;
 } transform_arguments_t;
 
+typedef struct _transform_dynamic_arguments {
+    binding_call_t * color;
+    binding_call_t * direction;
+    binding_call_t * mirror_axis;
+    binding_call_t * point;
+} transform_dynamic_arguments_t;
+
+void apply_binding(
+    const graph_t* graph,
+    const node_t* node,
+    const transform_dynamic_arguments_t* dynamic,
+    transform_arguments_t* args);
+
 typedef struct _transform_func {
     void (*func)(graph_t*, node_t*, transform_arguments_t*);
-    transform_argument_flags_t flags;
+    bool color;
+    bool direction;
+    bool overlap;
+    bool rotation_dir;
+    bool mirror_axis;
+    bool mirror_direction;
+    bool object_id;
+    bool point;
+    bool relative_pos;
 } transform_func_t;
 
 extern transform_func_t transformations[];
@@ -90,7 +105,8 @@ extern transform_func_t transformations[];
 typedef struct _transform_call {
     struct _transform_call * next;
     const transform_func_t * filter;
-    transform_arguments_t args;
+    transform_arguments_t arguments;
+    transform_dynamic_arguments_t dynamic;
 } transform_call_t;
 
 void apply_transformation(const graph_t * graph, const node_t * node, const transform_call_t * call);

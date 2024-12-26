@@ -19,6 +19,7 @@ typedef struct _task {
     // workspace
     mem_block_t* _mem_filter_calls;
     mem_block_t* _mem_binding_calls;
+    mem_block_t* _mem_transform_calls;
 } task_t;
 
 task_t* new_task();

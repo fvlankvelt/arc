@@ -2,8 +2,8 @@
 #define __GRAPH__
 
 #include <assert.h>
-#include <stdlib.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #define NODE_INDEX_SIZE 1024
 #define NODES_ALLOC 1024
@@ -59,13 +59,17 @@ typedef struct _node {
     unsigned short n_edges;
 } node_t;
 
-typedef enum _edge_direction { HORIZONTAL, VERTICAL, OVERLAPPING } edge_direction_t;
+typedef enum _edge_direction {
+    EDGE_HORIZONTAL,
+    EDGE_VERTICAL,
+    EDGE_OVERLAPPING
+} edge_direction_t;
 
 // premature optimization: fits with partner on a cacheline (64 bytes)
 typedef struct _edge {
     struct _edge *next;
     struct _edge *swap;
-    struct _node *node;
+    struct _node *peer;
     edge_direction_t direction;
 } edge_t;
 
@@ -354,10 +358,10 @@ static inline node_t *add_node(graph_t *graph, coordinate_t coord, int n_subnode
 
 static inline void remove_edge(graph_t *graph, edge_t *edge) {
     edge_t *other = edge->swap;
-    _remove_entry(&edge->node->edges, edge);
-    _remove_entry(&other->node->edges, other);
-    edge->node->n_edges--;
-    other->node->n_edges--;
+    _remove_entry(&edge->peer->edges, other);
+    _remove_entry(&other->peer->edges, edge);
+    edge->peer->n_edges--;
+    other->peer->n_edges--;
 
     graph->_edges_available += 2;
     other->next = edge;
@@ -413,14 +417,14 @@ static inline edge_t *add_edge(graph_t *graph, node_t *from, node_t *to,
 
     from_to->next = from->edges;
     from_to->swap = to_from;
-    from_to->node = from;
+    from_to->peer = to;
     from_to->direction = direction;
     from->edges = from_to;
     from->n_edges++;
 
     to_from->next = to->edges;
     to_from->swap = from_to;
-    to_from->node = to;
+    to_from->peer = from;
     to_from->direction = direction;
     to->edges = to_from;
     to->n_edges++;
@@ -430,7 +434,7 @@ static inline edge_t *add_edge(graph_t *graph, node_t *from, node_t *to,
 
 static inline edge_t *has_edge(node_t *from, node_t *to) {
     for (edge_t *edge = from->edges; edge; edge = edge->next) {
-        if (edge->swap->node == to) {
+        if (edge->peer == to) {
             return edge;
         }
     }
