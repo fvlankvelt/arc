@@ -10,11 +10,13 @@ extern bool test_task();
 int main() {
     bool result = true;
     printf("Running tests\n");
-    result &= test_graph();
-    result &= test_filter();
-    result &= test_transform();
-    result &= test_mem();
-    result &= test_task();
+    // for (;;) {
+        result &= test_graph();
+        result &= test_filter();
+        result &= test_transform();
+        result &= test_mem();
+        result &= test_task();
+    // }
     if (result) {
         return 0;
     } else {

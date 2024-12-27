@@ -165,6 +165,10 @@ filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstract
         }
     }
 
+    for (int i_train = 0; i_train < task->n_train; i_train++) {
+        free_graph(abstracted_graphs[i_train]);
+    }
+
     return result;
 }
 
@@ -286,6 +290,10 @@ binding_call_t* get_bindings(
                 }
             }
         }
+    }
+
+    for (int i_train = 0; i_train < task->n_train; i_train++) {
+        free_graph(abstracted_graphs[i_train]);
     }
 
     return result;
