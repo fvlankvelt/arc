@@ -104,7 +104,7 @@ extern transform_func_t transformations[];
 
 typedef struct _transform_call {
     struct _transform_call * next;
-    const transform_func_t * filter;
+    const transform_func_t * transform;
     transform_arguments_t arguments;
     transform_dynamic_arguments_t dynamic;
 } transform_call_t;

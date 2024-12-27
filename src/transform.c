@@ -164,6 +164,9 @@ transform_func_t transformations[] = {
         .direction = true,
         .overlap = true,
     },
+    {
+        .func = NULL,
+    }
 };
 
 direction_t get_relative_pos(const node_t* node, const node_t* other) {

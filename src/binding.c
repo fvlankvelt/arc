@@ -73,6 +73,9 @@ binding_func_t binding_funcs[] = {
         .exclude = true,
         .degree = true,
     },
+    {
+        .func = NULL,
+    }
 };
 
 node_t * get_binding_node(const graph_t * graph, const node_t * node, const binding_call_t * call) {
