@@ -7,9 +7,9 @@
 
 #define NODE_INDEX_SIZE 1024
 #define NODES_ALLOC 1024
-#define EDGES_ALLOC 2048
+#define EDGES_ALLOC 4096
 #define SUBNODE_BLOCK_SIZE 11
-#define SUBNODE_BLOCKS_ALLOC 256
+#define SUBNODE_BLOCKS_ALLOC 1024
 
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)

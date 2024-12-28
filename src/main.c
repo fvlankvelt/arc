@@ -1,36 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int main() {
-    char *source = NULL;
-    FILE *fp = fopen("data/0a938d79.json", "r");
-    if (fp != NULL) {
-        /* Go to the end of the file. */
-        if (fseek(fp, 0L, SEEK_END) == 0) {
-            /* Get the size of the file. */
-            long bufsize = ftell(fp);
-            if (bufsize == -1) { /* Error */
-                exit(-1);
-            }
+#include "io.h"
 
-            /* Allocate our buffer to that size. */
-            source = malloc(sizeof(char) * (bufsize + 1));
-
-            /* Go back to the start of the file. */
-            if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */
-                exit(-1);
-            }
-
-            /* Read the entire file into memory. */
-            size_t newLen = fread(source, sizeof(char), bufsize, fp);
-            if (ferror(fp) != 0) {
-                fputs("Error reading file", stderr);
-            } else {
-                source[newLen++] = '\0'; /* Just to be safe. */
-            }
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        task_def_t * tasks = list_tasks();
+        for (task_def_t * task_def = tasks; task_def; task_def = task_def->next) {
+            printf("%s\n", task_def->name);
         }
-        fclose(fp);
+        return 0;
+    } else {
+        const char * source = read_task(argv[1]);
+        if (source) {
+            task_t * task = parse_task(source);
+            printf("n_train: %d\n", task->n_train);
+            free_task(task);
+            free((char *) source);
+        }
     }
-
-    free(source);
 }

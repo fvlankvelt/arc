@@ -42,8 +42,8 @@ $(TEST_OBJDIR)/%.o: $(TESTDIR)/%.c $(SOURCEDIR)/*.h $(TESTDIR)/*.h Makefile | $(
 $(BINDIR):
 	mkdir -p $(BINDIR)
 
-$(BINDIR)/arga: $(OBJECTS) src/main.o | $(BINDIR)
-	$(CC) -o $(BINDIR)/arga $(OBJECTS) src/main.o -lcjson
+$(BINDIR)/arga: $(OBJECTS) obj/main.o | $(BINDIR)
+	$(CC) -o $(BINDIR)/arga $(OBJECTS) obj/main.o -lcjson
 
 $(BINDIR)/test: $(TEST_OBJECTS) $(OBJECTS) | $(BINDIR)
 	$(CC) -o $(BINDIR)/test $(TEST_OBJECTS) $(OBJECTS) -lcjson

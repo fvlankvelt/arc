@@ -7,8 +7,8 @@
 #include "transform.h"
 #include "mem.h"
 
-#define MAX_TRAIN_EXAMPLES 5
-#define MAX_TEST_INPUT 3
+#define MAX_TRAIN_EXAMPLES 10
+#define MAX_TEST_INPUT 5
 
 typedef struct _task {
     int n_train;

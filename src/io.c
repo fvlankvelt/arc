@@ -53,6 +53,47 @@ task_t* parse_task(const char* source) {
     return task;
 }
 
+const char * read_task(const char * name) {
+    char filename[128];
+    if (strlen(name) < 100) {
+        sprintf(filename, "data/%s", name);
+    } else {
+        return NULL;
+    }
+
+    char *source = NULL;
+    FILE *fp = fopen(filename, "r");
+    if (fp != NULL) {
+        /* Go to the end of the file. */
+        if (fseek(fp, 0L, SEEK_END) == 0) {
+            /* Get the size of the file. */
+            long bufsize = ftell(fp);
+            if (bufsize == -1) { /* Error */
+                exit(-1);
+            }
+
+            /* Allocate our buffer to that size. */
+            source = malloc(sizeof(char) * (bufsize + 1));
+
+            /* Go back to the start of the file. */
+            if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */
+                exit(-1);
+            }
+
+            /* Read the entire file into memory. */
+            size_t newLen = fread(source, sizeof(char), bufsize, fp);
+            if (ferror(fp) != 0) {
+                fputs("Error reading file", stderr);
+            } else {
+                source[newLen++] = '\0'; /* Just to be safe. */
+            }
+        }
+        fclose(fp);
+    }
+
+    return source;
+}
+
 task_def_t* list_tasks() {
     task_def_t * result = NULL;
     DIR* d = opendir("data");
@@ -60,6 +101,9 @@ task_def_t* list_tasks() {
         struct dirent* dir;
         while ((dir = readdir(d)) != NULL) {
             char * name = dir->d_name;
+            if (strlen(name) < 6 || strncmp(".json", &name[strlen(name) - 5], 5)) {
+                continue;
+            }
             int len = strlen(name);
             task_def_t * entry = malloc(sizeof(task_def_t) + len + 1);
             entry->next = result;
