@@ -4,7 +4,7 @@ CCFLAGS=-ggdb -std=gnu17 # -Wall -Wextra
 
 INC=-I./src
 SOURCEDIR := src
-SOURCES := $(wildcard $(SOURCEDIR)/*.c)
+SOURCES := $(filter-out src/main.c, $(wildcard $(SOURCEDIR)/*.c))
 OBJDIR = obj
 OBJECTS := $(patsubst $(SOURCEDIR)/%.c,$(OBJDIR)/%.o, $(SOURCES))
 
@@ -15,6 +15,11 @@ TEST_OBJDIR = test_obj
 TEST_OBJECTS := $(patsubst $(TESTDIR)/%.c,$(TEST_OBJDIR)/%.o, $(TEST_SOURCES))
 
 BINDIR := bin
+
+all: $(BINDIR)/arga $(BINDIR)/test
+
+arga: $(BINDIR)/arga
+	$(BINDIR)/arga
 
 test: $(BINDIR)/test
 	$(BINDIR)/test
@@ -37,26 +42,8 @@ $(TEST_OBJDIR)/%.o: $(TESTDIR)/%.c $(SOURCEDIR)/*.h $(TESTDIR)/*.h Makefile | $(
 $(BINDIR):
 	mkdir -p $(BINDIR)
 
-$(BINDIR)/test: $(TEST_OBJECTS) $(OBJECTS) | $(BINDIR)
-	$(CC) -o $(BINDIR)/test $(TEST_OBJECTS) $(OBJECTS)
+$(BINDIR)/arga: $(OBJECTS) src/main.o | $(BINDIR)
+	$(CC) -o $(BINDIR)/arga $(OBJECTS) src/main.o -lcjson
 
-# 
-# out/%.o: src/%.c *.h
-# 	gcc ${CCFLAGS} -c $< 
-# 
-# all: test_graph test_transform test_filter
-# 
-# test_graph: test_graph.o image.o filter.o transform.o
-# 	gcc -o test_graph test_graph.o image.o transform.o filter.o
-# 
-# test_transform: test_transform.o image.o filter.o transform.o
-# 	gcc -o test_transform test_transform.o image.o transform.o filter.o
-# 
-# test_filter: test_filter.o image.o filter.o transform.o
-# 	gcc -o test_filter test_filter.o image.o transform.o filter.o
-# 
-# clean:
-# 	rm -f *.o test_graph test_transform test_filter
-# 
-# run: test_graph test_transform test_filter
-# 	./test_graph && ./test_transform && ./test_filter
+$(BINDIR)/test: $(TEST_OBJECTS) $(OBJECTS) | $(BINDIR)
+	$(CC) -o $(BINDIR)/test $(TEST_OBJECTS) $(OBJECTS) -lcjson

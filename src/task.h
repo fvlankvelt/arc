@@ -16,6 +16,7 @@ typedef struct _task {
     const graph_t* train_input[MAX_TRAIN_EXAMPLES];
     const graph_t* train_output[MAX_TRAIN_EXAMPLES];
     const graph_t* test_input[MAX_TEST_INPUT];
+    const graph_t* test_output[MAX_TEST_INPUT];
 
     // workspace
     mem_block_t* _mem_filter_calls;

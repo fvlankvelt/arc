@@ -2,8 +2,7 @@
 #include "task.h"
 #include "test.h"
 
-// DEFINE_TEST(test_get_candidate_filters, ({
-bool test_get_candidate_filters() {
+DEFINE_TEST(test_get_candidate_filters, ({
     task_t * task = new_task();
     // clang-format off
     color_t grid[] = {
@@ -12,9 +11,9 @@ bool test_get_candidate_filters() {
       2, 0, 2,
     };
     // clang-format on
-    graph_t* graph = graph_from_grid(grid, 3, 3);
     task->n_train = 1;
-    task->train_input[0] = graph;
+    task->train_input[0] = graph_from_grid(grid, 3, 3);
+    task->train_output[0] = graph_from_grid(grid, 3, 3);
 
     filter_call_t * calls = get_candidate_filters(task, &abstractions[0]);
     ASSERT(calls, "no filter calls found");
@@ -30,11 +29,7 @@ bool test_get_candidate_filters() {
         count++;
     }
     ASSERT(count == 52, "Number of transforms does not match");
-
-    free_task(task);
-    free_graph(graph);
-    return true;
-}
+}))
 
 RUN_SUITE(test_task, {
     RUN_TEST(test_get_candidate_filters);

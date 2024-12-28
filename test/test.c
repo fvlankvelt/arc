@@ -6,6 +6,7 @@ extern bool test_filter();
 extern bool test_transform();
 extern bool test_mem();
 extern bool test_task();
+extern bool test_io();
 
 int main() {
     bool result = true;
@@ -16,6 +17,7 @@ int main() {
         result &= test_transform();
         result &= test_mem();
         result &= test_task();
+        result &= test_io();
     // }
     if (result) {
         return 0;

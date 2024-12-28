@@ -28,6 +28,14 @@ task_t* new_task() {
 }
 
 void free_task(task_t* task) {
+    for (int i_train = 0; i_train < task->n_train; i_train++) {
+        free_graph(task->train_input[i_train]);
+        free_graph(task->train_output[i_train]);
+    }
+    for (int i_test = 0; i_test < task->n_test; i_test++) {
+        free_graph(task->test_input[i_test]);
+        free_graph(task->test_output[i_test]);
+    }
     free_block(task->_mem_transform_calls);
     free_block(task->_mem_binding_calls);
     free_block(task->_mem_filter_calls);
@@ -166,7 +174,7 @@ filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstract
     }
 
     for (int i_train = 0; i_train < task->n_train; i_train++) {
-        free_graph(abstracted_graphs[i_train]);
+        free_graph((graph_t *) abstracted_graphs[i_train]);
     }
 
     return result;
@@ -293,7 +301,7 @@ binding_call_t* get_bindings(
     }
 
     for (int i_train = 0; i_train < task->n_train; i_train++) {
-        free_graph(abstracted_graphs[i_train]);
+        free_graph((graph_t *) abstracted_graphs[i_train]);
     }
 
     return result;
