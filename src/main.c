@@ -15,6 +15,15 @@ int main(int argc, char *argv[]) {
         if (source) {
             task_t * task = parse_task(source);
             printf("n_train: %d\n", task->n_train);
+            filter_call_t * filters = get_candidate_filters(task, &abstractions[0]);
+            for (filter_call_t * filter = filters; filter; filter = filter->next) {
+                transform_call_t * transform = generate_parameters(task, filter, &abstractions[0]);
+                int n = 0;
+                for (transform_call_t * call = transform; call; call = call->next) {
+                    n++;
+                }
+                printf("  %d\n", n);
+            }
             free_task(task);
             free((char *) source);
         }

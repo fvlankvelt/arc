@@ -65,7 +65,7 @@ graph_t* get_no_abstraction_graph(const graph_t* in) {
     int idx = 0;
     for (const node_t* node = first_node(in); node != NULL; node = next_node(node)) {
         const subnode_t orig = get_subnode(node, 0);
-        set_subnode(out_node, idx, orig);
+        set_subnode(out_node, idx++, orig);
     }
     return out;
 }
