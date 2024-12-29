@@ -1,6 +1,7 @@
+#include "image.h"
+
 #include "collection.h"
 #include "graph.h"
-#include "image.h"
 
 graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
     graph_t* graph = new_graph(n_cols, n_rows);
@@ -103,40 +104,7 @@ void _add_neighbors(node_set_t* visited, list_node_t* nodes, const node_t* node,
     }
 }
 
-graph_t* get_connected_components_graph(const graph_t* in) {
-    graph_t* out = new_graph(in->width, in->height);
-    for (color_t color = 0; color < 10; color++) {
-        graph_t* by_color = subgraph_by_color(in, color);
-        node_set_t* visited = new_node_set(by_color->n_nodes);
-        int component_idx = 0;
-        for (const node_t* node = by_color->nodes; node; node = node->next) {
-            if (is_node_in_set(visited, node)) {
-                continue;
-            }
-            int n_subnodes = 1;
-            list_node_t* node_list = new_node_list();
-            add_node_to_set(visited, node);
-            add_node_to_list(node_list, node);
-            _add_neighbors(visited, node_list, node, &n_subnodes);
-
-            node_t* component = add_node(out, (coordinate_t){color, component_idx}, n_subnodes);
-            list_iter_t iter;
-            int subnode_idx = 0;
-            for (init_list_iter(node_list, &iter); has_iter_value(&iter);
-                 next_list_iter(&iter)) {
-                subnode_t subnode = get_subnode(component, subnode_idx);
-                subnode.coord = iter.node->coord;
-                subnode.color = color;
-                set_subnode(component, subnode_idx, subnode);
-                subnode_idx++;
-            }
-            component_idx++;
-            free_node_list(node_list);
-        }
-        free_node_set(visited);
-        free_graph(by_color);
-    }
-
+void _link_nodes_without_intermediary(graph_t* out, const graph_t* in) {
     derived_props_t props = get_derived_properties(in);
     for (node_t* node1 = out->nodes; node1; node1 = node1->next) {
         for (node_t* node2 = node1->next; node2; node2 = node2->next) {
@@ -196,7 +164,90 @@ graph_t* get_connected_components_graph(const graph_t* in) {
             }
         }
     }
+}
+
+graph_t* _connected_components_graph(
+    const graph_t* in, bool remove_bg_corners, bool remove_bg_edges, bool remove_all_bg) {
+    derived_props_t props = get_derived_properties(in);
+    graph_t* out = new_graph(in->width, in->height);
+    for (color_t color = 0; color < 10; color++) {
+        graph_t* by_color = subgraph_by_color(in, color);
+        node_set_t* visited = new_node_set(by_color->n_nodes);
+        int component_idx = 0;
+        for (const node_t* node = by_color->nodes; node; node = node->next) {
+            if (is_node_in_set(visited, node)) {
+                continue;
+            }
+            int n_subnodes = 1;
+            list_node_t* node_list = new_node_list();
+            add_node_to_set(visited, node);
+            add_node_to_list(node_list, node);
+            _add_neighbors(visited, node_list, node, &n_subnodes);
+
+            bool excluded = false;
+            if (color == props.background_color) {
+                if (remove_all_bg) {
+                    excluded = true;
+                } else {
+                    list_iter_t iter;
+                    for (init_list_iter(node_list, &iter); has_iter_value(&iter);
+                         next_list_iter(&iter)) {
+                        coordinate_t coord = iter.node->coord;
+                        if (remove_bg_edges) {
+                            if (coord.pri == 0 || coord.sec == 0 ||
+                                coord.pri == in->width - 1 || coord.sec == in->height - 1) {
+                                excluded = true;
+                                break;
+                            }
+                        } else if (remove_bg_corners) {
+                            if ((coord.pri == 0 || coord.pri == in->width - 1) &&
+                                (coord.sec == 0 || coord.sec == in->height - 1)) {
+                                excluded = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!excluded) {
+                node_t* component =
+                    add_node(out, (coordinate_t){color, component_idx}, n_subnodes);
+                list_iter_t iter;
+                int subnode_idx = 0;
+                for (init_list_iter(node_list, &iter); has_iter_value(&iter);
+                     next_list_iter(&iter)) {
+                    subnode_t subnode = get_subnode(component, subnode_idx);
+                    subnode.coord = iter.node->coord;
+                    subnode.color = color;
+                    set_subnode(component, subnode_idx, subnode);
+                    subnode_idx++;
+                }
+                component_idx++;
+            }
+            free_node_list(node_list);
+        }
+        free_node_set(visited);
+        free_graph(by_color);
+    }
+    _link_nodes_without_intermediary(out, in);
     return out;
+}
+
+graph_t* get_connected_components_graph(const graph_t* in) {
+    return _connected_components_graph(in, false, false, false);
+}
+
+graph_t* get_connected_components_graph_background_corners_removed(const graph_t* in) {
+    return _connected_components_graph(in, true, false, false);
+}
+
+graph_t* get_connected_components_graph_background_edges_removed(const graph_t* in) {
+    return _connected_components_graph(in, false, true, false);
+}
+
+graph_t* get_connected_components_graph_background_removed(const graph_t* in) {
+    return _connected_components_graph(in, false, false, true);
 }
 
 abstraction_t abstractions[] = {
@@ -205,5 +256,16 @@ abstraction_t abstractions[] = {
     },
     {
         .func = get_connected_components_graph,
-    }
-};
+    },
+    {
+        .func = get_connected_components_graph_background_corners_removed,
+    },
+    {
+        .func = get_connected_components_graph_background_edges_removed,
+    },
+    {
+        .func = get_connected_components_graph_background_removed,
+    },
+    {
+        .func = NULL,
+    }};
