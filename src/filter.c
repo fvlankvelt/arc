@@ -5,7 +5,7 @@ bool filter_by_color(const graph_t* graph, const node_t* node, const filter_argu
     if (color < 0) {
         derived_props_t sym_colors = get_derived_properties(graph);
         if (color == BACKGROUND_COLOR) {
-            color = sym_colors.background_color;
+            color = graph->background_color;
         } else if (color == MOST_COMMON_COLOR) {
             color = sym_colors.most_common_color;
         } else if (color == LEAST_COMMON_COLOR) {

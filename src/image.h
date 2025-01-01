@@ -10,8 +10,11 @@ graph_t* subgraph_by_color(const graph_t* in, color_t color);
 graph_t* get_no_abstraction_graph(const graph_t* in);
 graph_t* get_connected_components_graph(const graph_t* in);
 
+graph_t* undo_abstraction(const graph_t* in);
+
 typedef struct _abstraction {
     graph_t * (*func)(const graph_t * in);
+    char * name;
 } abstraction_t;
 
 extern abstraction_t abstractions[];

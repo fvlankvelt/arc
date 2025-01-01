@@ -2,25 +2,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "test.h"
+#include "binding.h"
 #include "graph.h"
 #include "image.h"
+#include "test.h"
 #include "transform.h"
-#include "binding.h"
 
-extern node_t * bind_node_by_size(const graph_t * graph, const binding_arguments_t * params);
-extern node_t * bind_neighbor_by_size(const graph_t * graph, const binding_arguments_t * params);
-extern node_t * bind_neighbor_by_color(const graph_t * graph, const binding_arguments_t * params);
-extern node_t * bind_neighbor_by_degree(const graph_t * graph, const binding_arguments_t * params);
+extern node_t* bind_node_by_size(const graph_t* graph, const binding_arguments_t* params);
+extern node_t* bind_neighbor_by_size(const graph_t* graph, const binding_arguments_t* params);
+extern node_t* bind_neighbor_by_color(const graph_t* graph, const binding_arguments_t* params);
+extern node_t* bind_neighbor_by_degree(const graph_t* graph, const binding_arguments_t* params);
 
-DEFINE_TEST(test_image, ({
+BEGIN_TEST(test_image) {
     color_t grid[] = {2, 2, 1, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
     ASSERT(graph->n_nodes == 4, "n_nodes incorrect");
     free_graph(graph);
-}))
+}
+END_TEST()
 
-DEFINE_TEST(test_mutate_graph, ({
+BEGIN_TEST(test_mutate_graph) {
     color_t grid[] = {2, 2, 1, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
     node_t* node = get_node(graph, (coordinate_t){0, 0});
@@ -48,9 +49,10 @@ DEFINE_TEST(test_mutate_graph, ({
     ASSERT(!top_right->edges->next, "More than 1 edge found");
 
     free_graph(graph);
-}))
+}
+END_TEST()
 
-DEFINE_TEST(test_no_abstraction, ({
+BEGIN_TEST(test_no_abstraction) {
     color_t grid[] = {2, 2, 1, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
     graph_t* no_abstract = get_no_abstraction_graph(graph);
@@ -60,9 +62,10 @@ DEFINE_TEST(test_no_abstraction, ({
     ASSERT(node->n_subnodes == 4, "n_subnodes incorrect");
     free_graph(graph);
     free_graph(no_abstract);
-}))
+}
+END_TEST()
 
-DEFINE_TEST(test_subgraph_by_color, ({
+BEGIN_TEST(test_subgraph_by_color) {
     color_t grid[] = {2, 2, 1, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
 
@@ -79,9 +82,10 @@ DEFINE_TEST(test_subgraph_by_color, ({
     free_graph(by_color);
 
     free_graph(graph);
-}))
+}
+END_TEST()
 
-DEFINE_TEST(test_connected_components, ({
+BEGIN_TEST(test_connected_components) {
     // clang-format off
     color_t grid[] = {
       2, 2, 0,
@@ -112,12 +116,48 @@ DEFINE_TEST(test_connected_components, ({
     free_graph(connected);
 
     free_graph(graph);
-}))
+}
+END_TEST()
 
-RUN_SUITE(test_graph, {
+BEGIN_TEST(test_undo_abstraction) {
+    // clang-format off
+    color_t grid[] = {
+      2, 2, 0,
+      2, 0, 0,
+      2, 0, 2,
+    };
+    // clang-format on
+    graph_t* graph = graph_from_grid(grid, 3, 3);
+
+    for (int i_abstraction = 0; abstractions[i_abstraction].func; i_abstraction++) {
+        graph_t* out = abstractions[i_abstraction].func(graph);
+        graph_t* reconstructed = undo_abstraction(out);
+        for (int x = 0; x < graph->width; x++) {
+            for (int y = 0; y < graph->height; y++) {
+                const node_t* node = get_node(reconstructed, (coordinate_t){x, y});
+                const node_t* orig = get_node(graph, (coordinate_t){x, y});
+                ASSERT(node->n_subnodes == 1, "Reconstructed graph is not flat");
+                subnode_t subnode = get_subnode(node, 0);
+                subnode_t orig_sub = get_subnode(orig, 0);
+                ASSERT(
+                    subnode.coord.pri == orig_sub.coord.pri &&
+                        subnode.coord.sec == orig_sub.coord.sec,
+                    "Coordinates are incorrect");
+                ASSERT(subnode.color == orig_sub.color, "Color is incorrect");
+            }
+        }
+        free_graph(reconstructed);
+        free_graph(out);
+    }
+    free_graph(graph);
+}
+END_TEST()
+
+DEFINE_SUITE(test_graph, {
     RUN_TEST(test_image);
     RUN_TEST(test_mutate_graph);
     RUN_TEST(test_no_abstraction);
     RUN_TEST(test_subgraph_by_color);
     RUN_TEST(test_connected_components);
+    RUN_TEST(test_undo_abstraction);
 })

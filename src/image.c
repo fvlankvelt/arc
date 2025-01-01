@@ -1,5 +1,4 @@
 #include "image.h"
-
 #include "collection.h"
 #include "graph.h"
 
@@ -8,6 +7,7 @@ graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
     if (unlikely(graph == NULL)) {
         return NULL;
     }
+    graph->background_color = bg_color;
     for (int row = 0; row < n_rows; row++) {
         for (int col = 0; col < n_cols; col++) {
             coordinate_t coord = {col, row};
@@ -126,7 +126,7 @@ void _link_nodes_without_intermediary(graph_t* out, const graph_t* in) {
                         }
                         for (int sec = min + 1; sec < max; sec++) {
                             const node_t* orig_node = get_node(in, (coordinate_t){pri, sec});
-                            if (get_subnode(orig_node, 0).color != props.background_color) {
+                            if (get_subnode(orig_node, 0).color != in->background_color) {
                                 found = true;
                                 break;
                             }
@@ -149,7 +149,7 @@ void _link_nodes_without_intermediary(graph_t* out, const graph_t* in) {
                         }
                         for (int pri = min + 1; pri < max; pri++) {
                             const node_t* orig_node = get_node(in, (coordinate_t){pri, sec});
-                            if (get_subnode(orig_node, 0).color != props.background_color) {
+                            if (get_subnode(orig_node, 0).color != in->background_color) {
                                 found = true;
                                 break;
                             }
@@ -170,6 +170,7 @@ graph_t* _connected_components_graph(
     const graph_t* in, bool remove_bg_corners, bool remove_bg_edges, bool remove_all_bg) {
     derived_props_t props = get_derived_properties(in);
     graph_t* out = new_graph(in->width, in->height);
+    out->background_color =  in->background_color;
     for (color_t color = 0; color < 10; color++) {
         graph_t* by_color = subgraph_by_color(in, color);
         node_set_t* visited = new_node_set(by_color->n_nodes);
@@ -185,7 +186,7 @@ graph_t* _connected_components_graph(
             _add_neighbors(visited, node_list, node, &n_subnodes);
 
             bool excluded = false;
-            if (color == props.background_color) {
+            if (color == in->background_color) {
                 if (remove_all_bg) {
                     excluded = true;
                 } else {
@@ -250,21 +251,46 @@ graph_t* get_connected_components_graph_background_removed(const graph_t* in) {
     return _connected_components_graph(in, false, false, true);
 }
 
+graph_t * undo_abstraction(const graph_t * in) {
+    derived_props_t props = get_derived_properties(in);
+    graph_t * out = new_graph(in->width, in->height);
+    out->background_color = in->background_color;
+    for (int x = 0; x < in->width; x++) {
+        for (int y = 0; y < in->height; y++) {
+            node_t * new_node = add_node(out, (coordinate_t){x, y}, 1);
+            set_subnode(new_node, 0, (subnode_t){{x, y}, in->background_color});
+        }
+    }
+    for (const node_t * node = in->nodes; node; node = node->next) {
+        for (int sub = 0; sub < node->n_subnodes; sub++) {
+            subnode_t subnode = get_subnode(node, sub);
+            node_t * new_node = get_node(out, subnode.coord);
+            set_subnode(new_node, 0, subnode);
+        }
+    }
+    return out;
+}
+
 abstraction_t abstractions[] = {
     {
         .func = get_no_abstraction_graph,
+        .name = "no abstraction",
     },
     {
         .func = get_connected_components_graph,
+        .name = "connected components",
     },
     {
         .func = get_connected_components_graph_background_corners_removed,
+        .name = "connected, background corners removed",
     },
     {
         .func = get_connected_components_graph_background_edges_removed,
+        .name = "connected, background edges removed",
     },
     {
         .func = get_connected_components_graph_background_removed,
+        .name = "connected, background removed",
     },
     {
         .func = NULL,

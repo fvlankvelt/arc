@@ -24,7 +24,6 @@ typedef char color_t;
 #define ODD_SIZE -3
 
 typedef struct _derived_props {
-    color_t background_color;
     color_t most_common_color;
     color_t least_common_color;
     unsigned short min_size;
@@ -81,6 +80,7 @@ typedef struct _graph {
 
     // subnodes of a node can have different colors
     bool is_multicolor;
+    color_t background_color;
 
     // derived properties
     bool _has_changed;
@@ -140,6 +140,7 @@ static inline graph_t *new_graph(unsigned short width, unsigned short height) {
 
     graph->width = width;
     graph->height = height;
+    graph->background_color = BACKGROUND_COLOR;
 
     graph->n_nodes = 0;
     _init_list(&graph->nodes);
@@ -305,11 +306,6 @@ static inline derived_props_t get_derived_properties(const graph_t *graph) {
                     n_min = counts[i];
                 }
             }
-        }
-        if (counts[0] > 0) {
-            props->background_color = 0;
-        } else {
-            props->background_color = max;
         }
         props->most_common_color = max;
         props->least_common_color = min;

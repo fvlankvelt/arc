@@ -1,15 +1,17 @@
-#include "test.h"
-
+#include "filter.h"
 #include "graph.h"
 #include "image.h"
-#include "filter.h"
+#include "test.h"
 #include "transform.h"
 
-extern bool filter_by_color(const graph_t* graph, const node_t* node, const filter_arguments_t* args);
-extern bool filter_by_size(const graph_t* graph, const node_t* node, const filter_arguments_t* args);
-extern bool filter_by_degree(const graph_t* graph, const node_t* node, const filter_arguments_t* args);
+extern bool filter_by_color(
+    const graph_t* graph, const node_t* node, const filter_arguments_t* args);
+extern bool filter_by_size(
+    const graph_t* graph, const node_t* node, const filter_arguments_t* args);
+extern bool filter_by_degree(
+    const graph_t* graph, const node_t* node, const filter_arguments_t* args);
 
-DEFINE_TEST(test_filter_by_color,  ({
+BEGIN_TEST(test_filter_by_color) {
     color_t grid[] = {2, 2, 1, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
 
@@ -17,7 +19,7 @@ DEFINE_TEST(test_filter_by_color,  ({
         .color = 2,
         .exclude = false,
     };
-    node_t * node = get_node(graph, (coordinate_t){0, 0});
+    node_t* node = get_node(graph, (coordinate_t){0, 0});
     bool matches = filter_by_color(graph, node, &args);
     ASSERT(matches, "node does not match");
 
@@ -34,9 +36,10 @@ DEFINE_TEST(test_filter_by_color,  ({
     ASSERT(!matches, "node matches but shouldn't");
 
     free_graph(graph);
-}))
+}
+END_TEST()
 
-DEFINE_TEST(test_filter_by_derived_colors,  ({
+BEGIN_TEST(test_filter_by_derived_colors) {
     color_t grid[] = {2, 2, 0, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
 
@@ -44,23 +47,24 @@ DEFINE_TEST(test_filter_by_derived_colors,  ({
         .color = MOST_COMMON_COLOR,
         .exclude = false,
     };
-    node_t * node = get_node(graph, (coordinate_t){0, 0});
+    node_t* node = get_node(graph, (coordinate_t){0, 0});
     bool matches = filter_by_color(graph, node, &args);
     ASSERT(matches, "node does not match");
 
     node = get_node(graph, (coordinate_t){1, 1});
-    args = (filter_arguments_t) {.color = LEAST_COMMON_COLOR, .exclude = false};
+    args = (filter_arguments_t){.color = LEAST_COMMON_COLOR, .exclude = false};
     matches = filter_by_color(graph, node, &args);
     ASSERT(matches, "node does not match");
 
     node = get_node(graph, (coordinate_t){0, 1});
-    args = (filter_arguments_t) {.color = BACKGROUND_COLOR, .exclude = false};
+    args = (filter_arguments_t){.color = BACKGROUND_COLOR, .exclude = false};
     matches = filter_by_color(graph, node, &args);
     ASSERT(matches, "node does not match");
     free_graph(graph);
-}))
+}
+END_TEST()
 
-DEFINE_TEST(test_filter_by_size, ({
+BEGIN_TEST(test_filter_by_size) {
     color_t grid[] = {2, 2, 0, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
 
@@ -71,7 +75,7 @@ DEFINE_TEST(test_filter_by_size, ({
         .size = 2,
         .exclude = false,
     };
-    node_t * node = get_node(connected, (coordinate_t){2, 0});
+    node_t* node = get_node(connected, (coordinate_t){2, 0});
     bool matches = filter_by_size(connected, node, &args);
     ASSERT(matches, "node does not match");
 
@@ -90,9 +94,10 @@ DEFINE_TEST(test_filter_by_size, ({
 
     free_graph(connected);
     free_graph(graph);
-}))
+}
+END_TEST()
 
-DEFINE_TEST(test_filter_by_degree, ({
+BEGIN_TEST(test_filter_by_degree) {
     color_t grid[] = {2, 2, 0, 1};
     graph_t* graph = graph_from_grid(grid, 2, 2);
 
@@ -103,17 +108,18 @@ DEFINE_TEST(test_filter_by_degree, ({
         .degree = 2,
         .exclude = false,
     };
-    node_t * node = get_node(connected, (coordinate_t){2, 0});
+    node_t* node = get_node(connected, (coordinate_t){2, 0});
     bool matches = filter_by_degree(connected, node, &args);
     ASSERT(matches, "node does not match");
 
     free_graph(connected);
     free_graph(graph);
-}))
+}
+END_TEST()
 
-RUN_SUITE(test_filter, ({
-    RUN_TEST(test_filter_by_color);
-    RUN_TEST(test_filter_by_derived_colors);
-    RUN_TEST(test_filter_by_size);
-    RUN_TEST(test_filter_by_degree);
-}))
+DEFINE_SUITE(test_filter, ({
+              RUN_TEST(test_filter_by_color);
+              RUN_TEST(test_filter_by_derived_colors);
+              RUN_TEST(test_filter_by_size);
+              RUN_TEST(test_filter_by_degree);
+          }))

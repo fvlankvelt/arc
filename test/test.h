@@ -1,6 +1,6 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 
 #define ASSERT(stmt, msg)                      \
     if (!(stmt)) {                             \
@@ -9,17 +9,17 @@
         return false;                          \
     }
 
-#define DEFINE_TEST(name, body)       \
-    bool name() {                     \
-        printf("  %s... ", __func__); \
-        body;                         \
-        printf("PASS\n");             \
-        return true;                  \
+#define BEGIN_TEST(name) \
+    bool name() {        \
+        printf("  %s... ", __func__);
+#define END_TEST()    \
+    printf("PASS\n"); \
+    return true;      \
     }
 
 #define RUN_TEST(name) result &= name()
 
-#define RUN_SUITE(suite, body)          \
+#define DEFINE_SUITE(suite, body)          \
     bool suite() {                      \
         bool result = true;             \
         printf("Testing %s\n", #suite); \
