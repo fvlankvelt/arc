@@ -265,6 +265,10 @@ graph_t * undo_abstraction(const graph_t * in) {
         for (int sub = 0; sub < node->n_subnodes; sub++) {
             subnode_t subnode = get_subnode(node, sub);
             node_t * new_node = get_node(out, subnode.coord);
+            if (!new_node) {
+                free_graph(out);
+                return NULL;
+            }
             set_subnode(new_node, 0, subnode);
         }
     }

@@ -24,7 +24,7 @@ arga: $(BINDIR)/arga
 run: $(BINDIR)/arga
 	for file in $(shell $(BINDIR)/arga); do 	\
 		echo $$file; 																			\
-		$(BINDIR)/arga $$file; 														\
+		time $(BINDIR)/arga $$file; 											\
 	done
 
 test: $(BINDIR)/test

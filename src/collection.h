@@ -2,6 +2,7 @@
 #define __COLLECTION_H__
 
 #include <stdbool.h>
+
 #include "graph.h"
 
 typedef struct _node_set {
@@ -109,15 +110,17 @@ static void init_list_iter(list_node_t *list, list_iter_t *iter) {
     iter->node = list->entries[0];
 }
 
-static inline bool has_iter_value(list_iter_t * iter) {
-    return iter->index < iter->list->used || iter->list->next;
+static inline bool has_iter_value(list_iter_t *iter) {
+    return iter->list && (iter->index < iter->list->used || iter->list->next);
 }
 
 static inline void next_list_iter(list_iter_t *iter) {
     if (iter->index == NODE_LIST_BLOCK_SIZE - 1) {
         iter->list = iter->list->next;
         iter->index = 0;
-        iter->node = iter->list->entries[0];
+        if (iter->list) {
+            iter->node = iter->list->entries[0];
+        }
     } else {
         iter->index++;
         iter->node = iter->list->entries[iter->index];
@@ -126,16 +129,17 @@ static inline void next_list_iter(list_iter_t *iter) {
 
 // use a bitset for a set of coordinates
 
-static inline int bitset_size(const graph_t * graph) {
+static inline int bitset_size(const graph_t *graph) {
     return (graph->width * graph->height + 63) / 64;
 }
 
-static inline void add_coordinate(const graph_t * graph, long * bitset, coordinate_t coord) {
+static inline void add_coordinate(const graph_t *graph, long *bitset, coordinate_t coord) {
     int index = coord.pri * graph->width + coord.sec;
     bitset[index / 64] |= 1 << (index % 64);
 }
 
-static inline bool coordinate_in_set(const graph_t * graph, const long * bitset, coordinate_t coord) {
+static inline bool coordinate_in_set(
+    const graph_t *graph, const long *bitset, coordinate_t coord) {
     int index = coord.pri * graph->width + coord.sec;
     return bitset[index / 64] & (1 << (index % 64));
 }

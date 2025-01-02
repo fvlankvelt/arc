@@ -15,58 +15,65 @@ int main(int argc, char* argv[]) {
         if (source) {
             task_t* task = parse_task(source);
             printf("n_train: %d, n_test: %d\n", task->n_train, task->n_test);
-            filter_call_t* filters = get_candidate_filters(task, &abstractions[0]);
-            for (filter_call_t* filter = filters; filter; filter = filter->next) {
-                transform_call_t* transform =
-                    generate_parameters(task, filter, &abstractions[0]);
-                int n = 0;
-                for (transform_call_t* call = transform; call; call = call->next) {
-                    bool all_correct = true;
-                    for (int i_test = 0; i_test < task->n_test; i_test++) {
-                        const graph_t* test_in = task->test_input[i_test];
-                        graph_t* abs = (&abstractions[0])->func(test_in);
-                        bool transformed = false;
-                        for (node_t* node = abs->nodes; node; node = node->next) {
-                            if (filter->filter->func(abs, node, &filter->args)) {
-                                transform_arguments_t transform_args = call->arguments;
-                                apply_binding(abs, node, &call->dynamic, &transform_args);
-                                call->transform->func(abs, node, &transform_args);
-                                transformed = true;
-                                break;
-                            }
-                        }
-                        // verify output
-                        if (!transformed) {
-                            all_correct = false;
-                        } else {
-                            graph_t* reconstructed = undo_abstraction(abs);
-                            const graph_t* target = task->test_output[i_test];
-                            if (target->width != reconstructed->width ||
-                                target->height != reconstructed->height) {
-                                all_correct = false;
-                            } else {
-                                for (int x = 0; x < target->width; x++) {
-                                    for (int y = 0; y < target->height; y++) {
-                                        const node_t* node =
-                                            get_node(reconstructed, (coordinate_t){x, y});
-                                        const node_t* orig =
-                                            get_node(target, (coordinate_t){x, y});
-                                        const subnode_t subnode = get_subnode(node, 0);
-                                        const subnode_t refsub = get_subnode(orig, 0);
-                                        if (subnode.color != refsub.color) {
-                                            all_correct = false;
-                                        }
-                                    }
+            for (int i_abstraction = 0; abstractions[i_abstraction].func; i_abstraction++) {
+                abstraction_t* abstraction = &abstractions[i_abstraction];
+                filter_call_t* filters = get_candidate_filters(task, abstraction);
+                for (filter_call_t* filter = filters; filter; filter = filter->next) {
+                    transform_call_t* transform =
+                        generate_parameters(task, filter, &abstractions[0]);
+                    int n = 0;
+                    for (transform_call_t* call = transform; call; call = call->next) {
+                        bool all_correct = true;
+                        for (int i_test = 0; i_test < task->n_test; i_test++) {
+                            const graph_t* test_in = task->test_input[i_test];
+                            graph_t* abs = abstraction->func(test_in);
+                            bool transformed = false;
+                            for (node_t* node = abs->nodes; node; node = node->next) {
+                                if (filter->filter->func(abs, node, &filter->args)) {
+                                    transform_arguments_t transform_args = call->arguments;
+                                    apply_binding(abs, node, &call->dynamic, &transform_args);
+                                    call->transform->func(abs, node, &transform_args);
+                                    transformed = true;
+                                    break;
                                 }
                             }
-                            free_graph(reconstructed);
+                            // verify output
+                            if (!transformed) {
+                                all_correct = false;
+                            } else {
+                                graph_t* reconstructed = undo_abstraction(abs);
+                                if (!reconstructed) {
+                                    all_correct = false;
+                                } else {
+                                    const graph_t* target = task->test_output[i_test];
+                                    if (target->width != reconstructed->width ||
+                                        target->height != reconstructed->height) {
+                                        all_correct = false;
+                                    } else {
+                                        for (int x = 0; x < target->width; x++) {
+                                            for (int y = 0; y < target->height; y++) {
+                                                const node_t* node = get_node(
+                                                    reconstructed, (coordinate_t){x, y});
+                                                const node_t* orig =
+                                                    get_node(target, (coordinate_t){x, y});
+                                                const subnode_t subnode = get_subnode(node, 0);
+                                                const subnode_t refsub = get_subnode(orig, 0);
+                                                if (subnode.color != refsub.color) {
+                                                    all_correct = false;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    free_graph(reconstructed);
+                                }
+                            }
+                            free_graph(abs);
                         }
-                        free_graph(abs);
+                        if (all_correct) {
+                            printf("FOUND SOLUTION!\n");
+                        }
+                        n++;
                     }
-                    if (all_correct) {
-                        printf("FOUND SOLUTION!\n");
-                    }
-                    n++;
                 }
             }
             free_task(task);
