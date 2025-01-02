@@ -21,6 +21,12 @@ all: $(BINDIR)/arga $(BINDIR)/test
 arga: $(BINDIR)/arga
 	$(BINDIR)/arga
 
+run: $(BINDIR)/arga
+	for file in $(shell $(BINDIR)/arga); do 	\
+		echo $$file; 																			\
+		$(BINDIR)/arga $$file; 														\
+	done
+
 test: $(BINDIR)/test
 	$(BINDIR)/test
 
