@@ -21,14 +21,14 @@ BEGIN_TEST(test_get_candidate_filters) {
     for (filter_call_t* call = calls; call; call = call->next) {
         count++;
     }
-    ASSERT(count == 210, "Number of filters does not match");
+    ASSERT(count == 231, "Number of filters does not match");
 
     transform_call_t* transform = generate_parameters(task, calls, &abstractions[0]);
     count = 0;
     for (transform_call_t* call = transform; call; call = call->next) {
         count++;
     }
-    ASSERT(count == 52, "Number of transforms does not match");
+    ASSERT(count == 56, "Number of transforms does not match");
 }
 END_TEST()
 

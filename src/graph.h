@@ -18,6 +18,7 @@ typedef char color_t;
 #define BACKGROUND_COLOR ((color_t) - 1)
 #define MOST_COMMON_COLOR ((color_t) - 2)
 #define LEAST_COMMON_COLOR ((color_t) - 3)
+// #define SAME_COLOR ((color_t) - 4)
 
 #define MAX_SIZE -1
 #define MIN_SIZE -2

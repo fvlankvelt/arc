@@ -119,7 +119,7 @@ END_TEST()
 
 DEFINE_SUITE(test_filter, ({
               RUN_TEST(test_filter_by_color);
-              RUN_TEST(test_filter_by_derived_colors);
               RUN_TEST(test_filter_by_size);
               RUN_TEST(test_filter_by_degree);
+              RUN_TEST(test_filter_by_derived_colors);
           }))

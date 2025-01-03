@@ -23,8 +23,8 @@ arga: $(BINDIR)/arga
 
 run: $(BINDIR)/arga
 	for file in $(shell $(BINDIR)/arga); do 	\
-		echo $$file; 																			\
-		time $(BINDIR)/arga $$file; 											\
+		echo $$file; 														\
+		time $(BINDIR)/arga $$file 2>& 1; 			\
 	done
 
 test: $(BINDIR)/test

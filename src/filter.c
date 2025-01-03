@@ -80,6 +80,103 @@ bool filter_by_degree(
     }
 }
 
+bool filter_by_neighbor_size(
+    const graph_t* graph, const node_t* node, const filter_arguments_t* args) {
+    for (const edge_t* edge = node->edges; edge; edge = edge->next) {
+        const node_t* peer = edge->peer;
+        int size = args->size;
+        if (size < 0) {
+            if (size == ODD_SIZE) {
+                if (args->exclude) {
+                    if (peer->n_subnodes % 2 == 0) {
+                        return true;
+                    }
+                } else {
+                    if (peer->n_subnodes % 2 != 0) {
+                        return true;
+                    }
+                }
+            } else {
+                derived_props_t props = get_derived_properties(graph);
+                if (size == MAX_SIZE) {
+                    if (peer->n_subnodes == props.max_size) {
+                        return true;
+                    }
+                } else if (size == MIN_SIZE) {
+                    if (peer->n_subnodes == props.min_size) {
+                        return true;
+                    }
+                } else {
+                    assert(false);
+                    return false;
+                }
+            }
+        } else {
+            if (args->exclude) {
+                if (node->n_subnodes != size) {
+                    return true;
+                }
+            } else {
+                if (node->n_subnodes == size) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool filter_by_neighbor_color(
+    const graph_t* graph, const node_t* node, const filter_arguments_t* args) {
+    color_t color = args->color;
+    if (color < 0) {
+        derived_props_t sym_colors = get_derived_properties(graph);
+        if (color == BACKGROUND_COLOR) {
+            color = graph->background_color;
+        } else if (color == MOST_COMMON_COLOR) {
+            color = sym_colors.most_common_color;
+        } else if (color == LEAST_COMMON_COLOR) {
+            color = sym_colors.least_common_color;
+        } else {
+            assert(false);
+            return false;
+        }
+    }
+    for (const edge_t* edge = node->edges; edge; edge = edge->next) {
+        const node_t* peer = edge->peer;
+        subnode_t subnode = get_subnode(peer, 0);
+        if (args->exclude) {
+            if (subnode.color != color) {
+                return true;
+            }
+        } else {
+            if (subnode.color == color) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool filter_by_neighbor_degree(
+    __attribute__((unused)) const graph_t* graph,
+    const node_t* node,
+    const filter_arguments_t* args) {
+    for (const edge_t* edge = node->edges; edge; edge = edge->next) {
+        const node_t* peer = edge->peer;
+        if (args->exclude) {
+            if (peer->n_edges != args->degree) {
+                return true;
+            }
+        } else {
+            if (peer->n_edges == args->degree) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 filter_func_t filter_funcs[] = {
     {
         .func = filter_by_color,
@@ -93,6 +190,21 @@ filter_func_t filter_funcs[] = {
     },
     {
         .func = filter_by_degree,
+        .degree = true,
+        .exclude = true,
+    },
+    {
+        .func = filter_by_neighbor_color,
+        .color = true,
+        .exclude = true,
+    },
+    {
+        .func = filter_by_neighbor_size,
+        .size = true,
+        .exclude = true,
+    },
+    {
+        .func = filter_by_neighbor_degree,
         .degree = true,
         .exclude = true,
     },
