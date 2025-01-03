@@ -287,7 +287,7 @@ static inline derived_props_t get_derived_properties(const graph_t *graph) {
             }
             for (int i = 0; i < node->n_subnodes; i++) {
                 subnode_t subnode = get_subnode(node, i);
-                counts[subnode.color]++;
+                counts[(unsigned char) subnode.color]++;
             }
         }
         props->max_size = max_size;

@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "image.h"
 #include "collection.h"
 #include "graph.h"
@@ -19,6 +21,9 @@ graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
             if (col > 0) {
                 coordinate_t left = {col - 1, row};
                 node_t* left_node = get_node(graph, left);
+                if (!left_node) {
+                    printf("unable to find (%d, %d) (%d, %d)\n", left.pri, left.sec, col, row);
+                }
                 assert(left_node);
                 edge_t* edge = add_edge(graph, left_node, node, EDGE_HORIZONTAL);
                 if (unlikely(!edge)) {
@@ -105,7 +110,6 @@ void _add_neighbors(node_set_t* visited, list_node_t* nodes, const node_t* node,
 }
 
 void _link_nodes_without_intermediary(graph_t* out, const graph_t* in) {
-    derived_props_t props = get_derived_properties(in);
     for (node_t* node1 = out->nodes; node1; node1 = node1->next) {
         for (node_t* node2 = node1->next; node2; node2 = node2->next) {
             bool edge_added = false;
@@ -168,7 +172,6 @@ void _link_nodes_without_intermediary(graph_t* out, const graph_t* in) {
 
 graph_t* _connected_components_graph(
     const graph_t* in, bool remove_bg_corners, bool remove_bg_edges, bool remove_all_bg) {
-    derived_props_t props = get_derived_properties(in);
     graph_t* out = new_graph(in->width, in->height);
     out->background_color =  in->background_color;
     for (color_t color = 0; color < 10; color++) {
@@ -252,7 +255,6 @@ graph_t* get_connected_components_graph_background_removed(const graph_t* in) {
 }
 
 graph_t * undo_abstraction(const graph_t * in) {
-    derived_props_t props = get_derived_properties(in);
     graph_t * out = new_graph(in->width, in->height);
     out->background_color = in->background_color;
     for (int x = 0; x < in->width; x++) {

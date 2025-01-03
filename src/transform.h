@@ -70,7 +70,7 @@ typedef struct _transform_arguments {
     mirror_axis_t mirror_axis;
     mirror_t mirror_direction;
     short object_id;
-    coordinate_t point;
+    image_points_t point;
     relative_position_t relative_pos;
 } transform_arguments_t;
 

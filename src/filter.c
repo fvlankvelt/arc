@@ -69,8 +69,10 @@ bool filter_by_size(const graph_t* graph, const node_t* node, const filter_argum
     }
 }
 
-bool filter_by_degree(const graph_t* graph, const node_t* node,
-                      const filter_arguments_t* args) {
+bool filter_by_degree(
+    __attribute__((unused)) const graph_t* graph,
+    const node_t* node,
+    const filter_arguments_t* args) {
     if (args->exclude) {
         return node->n_edges != args->degree;
     } else {
@@ -96,11 +98,10 @@ filter_func_t filter_funcs[] = {
     },
     {
         .func = NULL,
-    }
-};
+    }};
 
-bool apply_filter(const graph_t * graph, const node_t * node, const filter_call_t * call) {
-    for (filter_call_t * current = (filter_call_t *) call; current; current = current->next) {
+bool apply_filter(const graph_t* graph, const node_t* node, const filter_call_t* call) {
+    for (filter_call_t* current = (filter_call_t*)call; current; current = current->next) {
         if (!current->filter->func(graph, node, &current->args)) {
             return false;
         }

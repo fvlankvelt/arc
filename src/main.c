@@ -24,9 +24,10 @@ int main(int argc, char* argv[]) {
                     int n = 0;
                     for (transform_call_t* call = transform; call; call = call->next) {
                         bool all_correct = true;
-                        for (int i_test = 0; i_test < task->n_test; i_test++) {
-                            const graph_t* test_in = task->test_input[i_test];
-                            graph_t* abs = abstraction->func(test_in);
+                        for (int i_test = 0; i_test < task->n_test + task->n_train; i_test++) {
+                            const graph_t* input = i_test < task->n_test ? task->test_input[i_test] : task->train_input[i_test - task->n_test];
+                            const graph_t* target = i_test < task->n_test ? task->test_output[i_test] : task->train_output[i_test - task->n_test];
+                            graph_t* abs = abstraction->func(input);
                             bool transformed = false;
                             for (node_t* node = abs->nodes; node; node = node->next) {
                                 if (filter->filter->func(abs, node, &filter->args)) {
@@ -45,7 +46,6 @@ int main(int argc, char* argv[]) {
                                 if (!reconstructed) {
                                     all_correct = false;
                                 } else {
-                                    const graph_t* target = task->test_output[i_test];
                                     if (target->width != reconstructed->width ||
                                         target->height != reconstructed->height) {
                                         all_correct = false;

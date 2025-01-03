@@ -73,7 +73,7 @@ filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstract
         int n_color;
         int size[MAX_ARGUMENT_VALUES];
         int degree[MAX_ARGUMENT_VALUES];
-        bool exclude[2];
+        bool exclude[3];
         color_t color[13];
     } arg_vals = {0};
 
@@ -218,7 +218,7 @@ binding_call_t* get_bindings(
         int n_color;
         int size[MAX_ARGUMENT_VALUES];
         int degree[MAX_ARGUMENT_VALUES];
-        bool exclude[2];
+        bool exclude[3];
         color_t color[13];
     } arg_vals = {0};
 
@@ -332,7 +332,7 @@ transform_call_t* generate_parameters(
 
         // fixed values
         rotation_t rotation[3];
-        bool overlap[2];
+        bool overlap[3];
         mirror_t mirror_direction[4];
         short object_id[MAX_ARGUMENT_VALUES];
         relative_position_t relative_pos[3];
@@ -465,7 +465,6 @@ transform_call_t* generate_parameters(
                                                 .direction = direction.direction,
                                                 .mirror_axis = mirror_axis.mirror_axis,
                                                 .point = point.image_point,
-
                                                 .overlap = overlap,
                                                 .rotation_dir = rotation,
                                                 .mirror_direction = mirror_direction,

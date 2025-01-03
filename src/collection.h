@@ -16,7 +16,7 @@ static inline unsigned int _node_set_id(const node_set_t *set, const node_t *nod
 }
 
 static inline void clear_node_set(node_set_t *set) {
-    for (int idx = 0; idx < set->size; idx++) {
+    for (unsigned int idx = 0; idx < set->size; idx++) {
         set->nodes[idx] = 0;
     }
 }
@@ -104,7 +104,7 @@ static inline void add_node_to_list(list_node_t *list, const node_t *node) {
     current_list->entries[current_list->used++] = node;
 }
 
-static void init_list_iter(list_node_t *list, list_iter_t *iter) {
+static inline void init_list_iter(list_node_t *list, list_iter_t *iter) {
     iter->list = list;
     iter->index = 0;
     iter->node = list->entries[0];

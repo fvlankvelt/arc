@@ -1,9 +1,10 @@
+#include "transform.h"
+
 #include <stdbool.h>
 #include <string.h>
 
-#include "collection.h"
 #include "binding.h"
-#include "transform.h"
+#include "collection.h"
 
 typedef struct _dcoord {
     signed short dx;
@@ -107,7 +108,8 @@ void update_color(graph_t* graph, node_t* node, transform_arguments_t* args) {
 /*
  * move node by 1 pixel in a given direction
  */
-void move_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
+void move_node(
+    __attribute__((unused)) graph_t* graph, node_t* node, transform_arguments_t* args) {
     dcoord_t delta = deltas[args->direction];
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t subnode = get_subnode(node, i);
@@ -166,8 +168,7 @@ transform_func_t transformations[] = {
     },
     {
         .func = NULL,
-    }
-};
+    }};
 
 direction_t get_relative_pos(const node_t* node, const node_t* other) {
     for (int i = 0; i < node->n_subnodes; i++) {
@@ -255,9 +256,12 @@ void apply_binding(
         node_t* target = get_binding_node(graph, node, binding);
         args->mirror_axis = get_mirror_axis(node, target);
     }
+    // TODO: handle get_centroid
+    /*
     if (dynamic->point) {
         binding_call_t* binding = dynamic->point;
         node_t* target = get_binding_node(graph, node, binding);
         args->point = get_centroid(target);
     }
+    */
 }

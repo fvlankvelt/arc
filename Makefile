@@ -1,6 +1,6 @@
-#CCFLAGS=-O3 -std=gnu17
+CCFLAGS=-Og -ggdb -std=gnu17 -Wall -Wextra
 CC=gcc
-CCFLAGS=-ggdb -std=gnu17 # -Wall -Wextra
+#CCFLAGS=-ggdb -std=gnu17 -Wall -Wextra
 
 INC=-I./src
 SOURCEDIR := src
