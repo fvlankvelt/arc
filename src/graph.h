@@ -141,6 +141,7 @@ static inline graph_t *new_graph(unsigned short width, unsigned short height) {
 
     graph->width = width;
     graph->height = height;
+    graph->is_multicolor = false;
     graph->background_color = BACKGROUND_COLOR;
 
     graph->n_nodes = 0;
