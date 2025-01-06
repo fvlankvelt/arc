@@ -134,13 +134,13 @@ static inline int bitset_size(const graph_t *graph) {
 }
 
 static inline void add_coordinate(const graph_t *graph, long *bitset, coordinate_t coord) {
-    int index = coord.pri * graph->width + coord.sec;
+    int index = coord.sec * graph->width + coord.pri;
     bitset[index / 64] |= 1 << (index % 64);
 }
 
 static inline bool coordinate_in_set(
     const graph_t *graph, const long *bitset, coordinate_t coord) {
-    int index = coord.pri * graph->width + coord.sec;
+    int index = coord.sec * graph->width + coord.pri;
     return bitset[index / 64] & (1 << (index % 64));
 }
 

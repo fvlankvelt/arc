@@ -182,38 +182,44 @@ filter_func_t filter_funcs[] = {
         .func = filter_by_color,
         .color = true,
         .exclude = true,
+        .name = "filter_by_color",
     },
     {
         .func = filter_by_size,
         .size = true,
         .exclude = true,
+        .name = "filter_by_size",
     },
     {
         .func = filter_by_degree,
         .degree = true,
         .exclude = true,
+        .name = "filter_by_degree",
     },
     {
         .func = filter_by_neighbor_color,
         .color = true,
         .exclude = true,
+        .name = "filter_by_neighbor_color",
     },
     {
         .func = filter_by_neighbor_size,
         .size = true,
         .exclude = true,
+        .name = "filter_by_neighbor_size",
     },
     {
         .func = filter_by_neighbor_degree,
         .degree = true,
         .exclude = true,
+        .name = "filter_by_neighbor_degree",
     },
     {
         .func = NULL,
     }};
 
 bool apply_filter(const graph_t* graph, const node_t* node, const filter_call_t* call) {
-    for (filter_call_t* current = (filter_call_t*)call; current; current = current->next) {
+    for (filter_call_t* current = (filter_call_t*)call; current; current = current->next_in_multi) {
         if (!current->filter->func(graph, node, &current->args)) {
             return false;
         }

@@ -81,7 +81,7 @@ typedef struct _transform_dynamic_arguments {
     binding_call_t * point;
 } transform_dynamic_arguments_t;
 
-void apply_binding(
+bool apply_binding(
     const graph_t* graph,
     const node_t* node,
     const transform_dynamic_arguments_t* dynamic,
@@ -98,6 +98,7 @@ typedef struct _transform_func {
     bool object_id;
     bool point;
     bool relative_pos;
+    const char * name;
 } transform_func_t;
 
 extern transform_func_t transformations[];

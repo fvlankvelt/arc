@@ -1,5 +1,7 @@
 #include "task.h"
 
+#include <stdio.h>
+
 #include "binding.h"
 #include "filter.h"
 #include "graph.h"
@@ -159,7 +161,7 @@ filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstract
         for (filter_call_t* second = first->next; second; second = second->next) {
             filter_call_t* candidate = new_item(task->_mem_filter_calls);
             (*candidate) = (filter_call_t){
-                .next = first,
+                .next_in_multi = first,
                 .filter = second->filter,
                 .args = second->args,
             };

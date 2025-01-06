@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define NODE_INDEX_SIZE 1024
 #define NODES_ALLOC 1024
@@ -194,9 +195,11 @@ static inline subnode_block_t *new_subnode_block(graph_t *graph) {
 
 static inline bool add_subnode_to_block(graph_t *graph, subnode_block_t *block,
                                         subnode_t subnode, int *n_subnodes) {
+                                            int n_blocks = 1;
     subnode_block_t *last_block = block;
     while (last_block->next) {
         last_block = last_block->next;
+        n_blocks++;
     }
     if (*n_subnodes > 0 && (*n_subnodes % SUBNODE_BLOCK_SIZE) == 0) {
         last_block->next = new_subnode_block(graph);
@@ -343,9 +346,12 @@ static inline node_t *add_node(graph_t *graph, coordinate_t coord, int n_subnode
 
     graph->_blocks_available -= n_blocks;
     node->subnodes = graph->_free_blocks;
+    subnode_block_t * last_block = NULL;
     while (n_blocks-- > 0) {
+        last_block = graph->_free_blocks;
         graph->_free_blocks = graph->_free_blocks->next;
     }
+    last_block->next = NULL;
     node->n_subnodes = n_subnodes;
     node->n_edges = 0;
 

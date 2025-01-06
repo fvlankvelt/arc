@@ -17,6 +17,7 @@ typedef struct _filter_func {
     bool degree;
     bool exclude;
     bool color;
+    const char * name;
 } filter_func_t;
 
 extern filter_func_t filter_funcs[];
@@ -24,6 +25,7 @@ extern filter_func_t filter_funcs[];
 typedef struct _filter_call {
     struct _filter_call * next;
     const filter_func_t * filter;
+    struct _filter_call * next_in_multi;
     filter_arguments_t args;
 } filter_call_t;
 

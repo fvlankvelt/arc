@@ -1,6 +1,7 @@
+#include "image.h"
+
 #include <stdio.h>
 
-#include "image.h"
 #include "collection.h"
 #include "graph.h"
 
@@ -56,6 +57,35 @@ graph_t* graph_from_grid(const color_t* grid, int n_rows, int n_cols) {
         }
     }
     return graph;
+}
+
+void print_graph(const graph_t* graph) {
+    color_t* result = malloc(graph->width * graph->height * sizeof(color_t));
+    for (int x = 0; x < graph->width; x++) {
+        for (int y = 0; y < graph->height; y++) {
+            int idx = y * graph->width + x;
+            result[idx] = graph->background_color;
+        }
+    }
+    for (node_t* node = graph->nodes; node; node = node->next) {
+        for (int i = 0; i < node->n_subnodes; i++) {
+            subnode_t subnode = get_subnode(node, i);
+            int idx = subnode.coord.sec * graph->width + subnode.coord.pri;
+            result[idx] = subnode.color;
+        }
+    }
+    for (int y = 0; y < graph->height; y++) {
+        for (int x = 0; x < graph->width; x++) {
+            int idx = y * graph->width + x;
+            if (result[idx] == graph->background_color) {
+                printf("  ");
+            } else {
+                printf(" %d", result[idx]);
+            }
+        }
+        printf("\n");
+    }
+    free(result);
 }
 
 graph_t* get_no_abstraction_graph(const graph_t* in) {
@@ -173,7 +203,7 @@ void _link_nodes_without_intermediary(graph_t* out, const graph_t* in) {
 graph_t* _connected_components_graph(
     const graph_t* in, bool remove_bg_corners, bool remove_bg_edges, bool remove_all_bg) {
     graph_t* out = new_graph(in->width, in->height);
-    out->background_color =  in->background_color;
+    out->background_color = in->background_color;
     for (color_t color = 0; color < 10; color++) {
         graph_t* by_color = subgraph_by_color(in, color);
         node_set_t* visited = new_node_set(by_color->n_nodes);
@@ -254,19 +284,19 @@ graph_t* get_connected_components_graph_background_removed(const graph_t* in) {
     return _connected_components_graph(in, false, false, true);
 }
 
-graph_t * undo_abstraction(const graph_t * in) {
-    graph_t * out = new_graph(in->width, in->height);
+graph_t* undo_abstraction(const graph_t* in) {
+    graph_t* out = new_graph(in->width, in->height);
     out->background_color = in->background_color;
     for (int x = 0; x < in->width; x++) {
         for (int y = 0; y < in->height; y++) {
-            node_t * new_node = add_node(out, (coordinate_t){x, y}, 1);
+            node_t* new_node = add_node(out, (coordinate_t){x, y}, 1);
             set_subnode(new_node, 0, (subnode_t){{x, y}, in->background_color});
         }
     }
-    for (const node_t * node = in->nodes; node; node = node->next) {
+    for (const node_t* node = in->nodes; node; node = node->next) {
         for (int sub = 0; sub < node->n_subnodes; sub++) {
             subnode_t subnode = get_subnode(node, sub);
-            node_t * new_node = get_node(out, subnode.coord);
+            node_t* new_node = get_node(out, subnode.coord);
             if (!new_node) {
                 free_graph(out);
                 return NULL;

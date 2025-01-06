@@ -65,6 +65,9 @@ bool check_collision(
     for (coordinate_t coord = init_subnode_iter(&iter, subnodes, n_subnodes);
          is_valid_subnode(&iter);
          coord = next_coordinate(&iter)) {
+        if (!check_bounds(graph, coord)) {
+            printf("NOOO!!!\n");
+        }
         add_coordinate(graph, bitset, coord);
     }
     for (const node_t* other = graph->nodes; other; other = other->next) {
@@ -99,7 +102,7 @@ color_t get_color(const graph_t* graph, color_t color) {
 void update_color(graph_t* graph, node_t* node, transform_arguments_t* args) {
     color_t color = get_color(graph, args->color);
     for (int i = 0; i < node->n_subnodes; i++) {
-        subnode_t subnode = get_subnode(node, 0);
+        subnode_t subnode = get_subnode(node, i);
         subnode.color = color;
         set_subnode(node, i, subnode);
     }
@@ -156,15 +159,18 @@ transform_func_t transformations[] = {
     {
         .func = update_color,
         .color = true,
+        .name = "update_color",
     },
     {
         .func = move_node,
         .direction = true,
+        .name = "move_node",
     },
     {
         .func = extend_node,
         .direction = true,
         .overlap = true,
+        .name = "extend_node",
     },
     {
         .func = NULL,
@@ -174,7 +180,7 @@ direction_t get_relative_pos(const node_t* node, const node_t* other) {
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t sub_node = get_subnode(node, i);
         for (int j = 0; j < other->n_subnodes; j++) {
-            subnode_t sub_other = get_subnode(other, i);
+            subnode_t sub_other = get_subnode(other, j);
             if (sub_node.coord.pri == sub_other.coord.pri) {
                 if (sub_node.coord.sec < sub_other.coord.sec) {
                     return RIGHT;
@@ -236,7 +242,7 @@ void copy_arguments(const transform_arguments_t* from, transform_arguments_t* to
     memcpy(to, from, sizeof(transform_arguments_t));
 }
 
-void apply_binding(
+bool apply_binding(
     const graph_t* graph,
     const node_t* node,
     const transform_dynamic_arguments_t* dynamic,
@@ -244,17 +250,29 @@ void apply_binding(
     if (dynamic->color) {
         binding_call_t* binding = dynamic->color;
         node_t* target = get_binding_node(graph, node, binding);
-        args->color = get_subnode(target, 0).color;
+        if (target) {
+            args->color = get_subnode(target, 0).color;
+        } else {
+            return false;
+        }
     }
     if (dynamic->direction) {
         binding_call_t* binding = dynamic->direction;
         node_t* target = get_binding_node(graph, node, binding);
-        args->direction = get_relative_pos(node, target);
+        if (target) {
+            args->direction = get_relative_pos(node, target);
+        } else {
+            return false;
+        }
     }
     if (dynamic->mirror_axis) {
         binding_call_t* binding = dynamic->mirror_axis;
         node_t* target = get_binding_node(graph, node, binding);
-        args->mirror_axis = get_mirror_axis(node, target);
+        if (target) {
+            args->mirror_axis = get_mirror_axis(node, target);
+        } else {
+            return false;
+        }
     }
     // TODO: handle get_centroid
     /*
@@ -264,4 +282,5 @@ void apply_binding(
         args->point = get_centroid(target);
     }
     */
+    return true;
 }
