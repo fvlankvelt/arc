@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "io.h"
 
@@ -16,8 +17,10 @@ int main(int argc, char* argv[]) {
             task_t* task = parse_task(source);
             printf("n_train: %d, n_test: %d\n", task->n_train, task->n_test);
             int n_transformations = 0;
+            time_t start_time = time(NULL);
             for (int i_abstraction = 0; abstractions[i_abstraction].func; i_abstraction++) {
                 abstraction_t* abstraction = &abstractions[i_abstraction];
+                printf("  abstraction %s\n", abstraction->name);
                 filter_call_t* filters = get_candidate_filters(task, abstraction);
                 for (filter_call_t* filter = filters; filter; filter = filter->next) {
                     transform_call_t* transform =
@@ -92,6 +95,13 @@ int main(int argc, char* argv[]) {
                             printf("SOME CORRECT\n");
                         }
                         n_transformations++;
+                        if ((n_transformations % 100) == 0) {
+                            time_t current_time = time(NULL);
+                            if ((current_time - start_time) > 60) {
+                                printf(" # transformations: %d\n", n_transformations);
+                                return -1;
+                            }
+                        }
                     }
                 }
             }

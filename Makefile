@@ -1,5 +1,5 @@
-CCFLAGS=-Og -ggdb -std=gnu17 -Wall -Wextra
 CC=gcc
+CCFLAGS=-Og -ggdb -std=gnu17 -Wall -Wextra
 #CCFLAGS=-ggdb -std=gnu17 -Wall -Wextra
 
 INC=-I./src
