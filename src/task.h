@@ -1,10 +1,7 @@
 #ifndef __TASK_H__
 #define __TASK_H__
 
-#include "filter.h"
 #include "graph.h"
-#include "image.h"
-#include "transform.h"
 #include "mem.h"
 
 #define MAX_TRAIN_EXAMPLES 10
@@ -26,9 +23,5 @@ typedef struct _task {
 
 task_t* new_task();
 void free_task(task_t* task);
-
-filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstraction);
-transform_call_t* generate_parameters(
-    const task_t* task, const filter_call_t* filter, const abstraction_t* abstraction);
 
 #endif  // __TASK_H__

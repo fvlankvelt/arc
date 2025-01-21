@@ -284,3 +284,121 @@ bool apply_binding(
     */
     return true;
 }
+
+#define MAX_ARGUMENT_VALUES 20
+
+struct {
+    int n_color;
+    int n_direction;
+    // int n_mirror_axis;
+    // int n_point;
+
+    // int n_rotation;
+    int n_overlap;
+    // int n_mirror_direction;
+    // int n_object_id;
+    // int n_relative_pos;
+
+    color_t color[13];
+    direction_t direction[DOWN_RIGHT + 2];
+
+    // rotation_t rotation[3];
+    bool overlap[3];
+    // mirror_t mirror_direction[4];
+    // short object_id[MAX_ARGUMENT_VALUES];
+    // relative_position_t relative_pos[3];
+} transform_argument_values;
+
+void init_transform(guide_t* guide) {
+    int n_funcs = 0;
+    while (transformations[n_funcs].func != NULL) {
+        n_funcs++;
+    }
+    add_choice(guide, n_funcs, "transform:func");
+
+    transform_argument_values.n_color = 3;
+    color_t* colors = transform_argument_values.color;
+    // 0: DYNAMIC
+    colors[1] = MOST_COMMON_COLOR;
+    colors[2] = LEAST_COMMON_COLOR;
+    for (color_t color = 0; color < 10; color++) {
+        colors[transform_argument_values.n_color++] = color;
+    }
+    add_binding(guide, "transform:color");
+
+    transform_argument_values.n_direction = DOWN_RIGHT + 2;
+    direction_t* directions = transform_argument_values.direction;
+    // 0: DYNAMIC
+    for (direction_t dir = UP; dir <= DOWN_RIGHT; dir++) {
+        directions[dir + 1] = dir;
+    }
+    add_binding(guide, "transform:direction");
+
+    transform_argument_values.n_overlap = 2;
+    bool* overlap = transform_argument_values.overlap;
+    overlap[0] = true;
+    overlap[1] = false;
+    add_choice(guide, 2, "transform:overlap");
+}
+
+transform_call_t* sample_transform(
+    task_t* task, const graph_t* graph, filter_call_t* filter, trail_t** p_trail) {
+    transform_call_t* call = new_item(task->_mem_transform_calls);
+    trail_t* trail = *p_trail;
+
+    const categorical_t* func_dist = next_choice(trail);
+    int i_func = choose(func_dist);
+    transform_func_t* func = &transformations[i_func];
+    call->transform = func;
+    trail = observe_choice(trail, i_func);
+
+    const categorical_t* color_dist = next_choice(trail);
+    int i_color = choose(color_dist);
+    if (i_color == 0) {
+        binding_call_t* binding = sample_binding(task, graph, filter, &trail);
+        if (!binding) {
+            goto fail;
+        }
+        call->dynamic.color = binding;
+    } else {
+        trail = observe_binding(trail, NULL);
+        call->arguments.color = transform_argument_values.color[i_color];
+    }
+
+    const categorical_t* direction_dist = next_choice(trail);
+    int i_direction = choose(direction_dist);
+    if (i_direction == 0) {
+        binding_call_t* binding = sample_binding(task, graph, filter, &trail);
+        if (!binding) {
+            goto fail;
+        }
+        call->dynamic.direction = binding;
+    } else {
+        trail = observe_binding(trail, NULL);
+        call->arguments.direction = transform_argument_values.direction[i_direction];
+    }
+
+    const categorical_t* overlap_dist = next_choice(trail);
+    int i_overlap = choose(overlap_dist);
+    trail = observe_choice(trail, i_overlap);
+    call->arguments.overlap = transform_argument_values.overlap[i_overlap];
+
+    *p_trail = trail;
+
+    return call;
+
+fail:
+    while (trail != *p_trail) {
+        trail = backtrack(trail);
+    }
+    free_item(task->_mem_transform_calls, call);
+    return NULL;
+}
+
+trail_t* observe_transform(trail_t* trail, __attribute__((unused)) transform_call_t* call) {
+    trail = observe_choice(trail, -1);
+    trail = observe_binding(trail, NULL);
+    trail = observe_binding(trail, NULL);
+    trail = observe_choice(trail, -1);
+    return trail;
+}

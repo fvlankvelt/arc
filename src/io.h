@@ -6,6 +6,7 @@
 typedef struct _task_def {
     struct _task_def* next;
     const char* name;
+    task_t * task;
 } task_def_t;
 
 task_def_t* list_tasks();

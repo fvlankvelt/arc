@@ -107,6 +107,7 @@ task_def_t* list_tasks() {
             int len = strlen(name);
             task_def_t * entry = malloc(sizeof(task_def_t) + len + 1);
             entry->next = result;
+            entry->task = NULL;
             entry->name = (char *)(((void *) entry) + sizeof(task_def_t));
             memcpy((char *) entry->name, name, len + 1);
             result = entry;

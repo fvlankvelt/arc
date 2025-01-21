@@ -4,6 +4,7 @@
 
 #include "collection.h"
 #include "graph.h"
+#include "guide.h"
 
 graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
     graph_t* graph = new_graph(n_cols, n_rows);
@@ -331,3 +332,30 @@ abstraction_t abstractions[] = {
     {
         .func = NULL,
     }};
+
+void init_image(guide_t* guide) {
+    int n_abstractions = 0;
+    while (abstractions[n_abstractions].func != NULL) {
+        n_abstractions++;
+    }
+    add_choice(guide, n_abstractions, "abstraction");
+}
+
+abstraction_t* sample_abstraction(trail_t** trail) {
+    categorical_t* dist = next_choice(*trail);
+    int abs_idx = choose(dist);
+    *trail = observe_choice(*trail, abs_idx);
+    return &abstractions[abs_idx];
+}
+
+trail_t* observe_abstraction(trail_t* trail, abstraction_t* abstraction) {
+    categorical_t* dist = next_choice(trail);
+    int abs_idx = 0;
+    while (abstractions[abs_idx].func != NULL) {
+        if (&abstractions[abs_idx] == abstraction) {
+            return observe_choice(trail, abs_idx);
+        }
+        abs_idx++;
+    }
+    assert(false);
+}
