@@ -41,49 +41,67 @@ int main(int argc, char* argv[]) {
                 abstraction_t* abstraction = sample_abstraction(&trail);
                 graph_t* graph = abstraction->func(input);
                 filter_call_t* filter = sample_filter(task, graph, &trail);
-                if (filter) {
-                    transform_call_t* call = sample_transform(task, graph, filter, &trail);
-                    if (call) {
-                        printf("Found training example for %s\n", task_def->name);
-                        for (node_t* node = graph->nodes; node; node = node->next) {
-                            if (filter->filter->func(graph, node, &filter->args)) {
-                                transform_arguments_t transform_args = call->arguments;
-                                if (apply_binding(
-                                        graph, node, &call->dynamic, &transform_args)) {
-                                    call->transform->func(graph, node, &transform_args);
-                                }
-                            }
-                        }
-                        graph_t* reconstructed = undo_abstraction(graph);
-                        if (reconstructed) {
-                            if (output->width == reconstructed->width &&
-                                output->height == reconstructed->height) {
-                                bool is_correct = true;
-                                for (int x = 0; x < output->width; x++) {
-                                    for (int y = 0; y < output->height; y++) {
-                                        const node_t* node =
-                                            get_node(reconstructed, (coordinate_t){x, y});
-                                        const node_t* orig =
-                                            get_node(output, (coordinate_t){x, y});
-                                        const subnode_t subnode = get_subnode(node, 0);
-                                        const subnode_t refsub = get_subnode(orig, 0);
-                                        if (subnode.color != refsub.color) {
-                                            is_correct = false;
-                                        }
-                                    }
-                                }
-                                if (is_correct) {
-                                    printf("  Correct transformation\n");
-                                }
-                            }
-                            mark_success(trail);
-                            free_graph(reconstructed);
-                        }
-                        free_item(task->_mem_transform_calls, call);
-                    }
-                    free_item(task->_mem_filter_calls, filter);
+                if (!filter) {
+                    goto no_filter;
                 }
+
+                transform_call_t* call = sample_transform(task, graph, filter, &trail);
+                if (!call) {
+                    goto no_transform;
+                }
+
+                // printf("Found training example for %s\n", task_def->name);
+                for (node_t* node = graph->nodes; node; node = node->next) {
+                    if (filter->filter->func(graph, node, &filter->args)) {
+                        transform_arguments_t transform_args = call->arguments;
+                        if (apply_binding(graph, node, &call->dynamic, &transform_args)) {
+                            call->transform->func(graph, node, &transform_args);
+                        }
+                    }
+                }
+
+                graph_t* reconstructed = undo_abstraction(graph);
+                if (!reconstructed) {
+                    goto no_reconstruction;
+                }
+
+                if (output->width == reconstructed->width &&
+                    output->height == reconstructed->height) {
+                    bool is_correct = true;
+                    for (int x = 0; x < output->width; x++) {
+                        for (int y = 0; y < output->height; y++) {
+                            const node_t* node = get_node(reconstructed, (coordinate_t){x, y});
+                            const node_t* orig = get_node(output, (coordinate_t){x, y});
+                            const subnode_t subnode = get_subnode(node, 0);
+                            const subnode_t refsub = get_subnode(orig, 0);
+                            if (subnode.color != refsub.color) {
+                                is_correct = false;
+                            }
+                        }
+                    }
+                    if (is_correct) {
+                        printf("  %s: Correct transformation\n", task_def->name);
+                    }
+                }
+
+                trail_t* train_trail = new_trail(input, reconstructed, guide);
+                train_trail = observe_abstraction(train_trail, abstraction);
+                train_trail = observe_filter(train_trail, filter);
+                train_trail = observe_transform(train_trail, call);
+                mark_success(train_trail);
+                free_trail(guide, train_trail);
+
+                free_graph(reconstructed);
+
+            no_reconstruction:
+                free_item(task->_mem_transform_calls, call);
+
+            no_transform:
+                free_item(task->_mem_filter_calls, filter);
+
+            no_filter:
                 free_graph(graph);
+
                 free_trail(guide, trail);
             }
         }
