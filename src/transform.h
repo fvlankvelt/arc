@@ -112,7 +112,7 @@ typedef struct _transform_call {
 
 void apply_transformation(const graph_t * graph, const node_t * node, const transform_call_t * call);
 
-void init_transform(guide_t* guide);
+void init_transform(guide_builder_t* guide);
 
 transform_call_t* sample_transform(
     task_t* task, const graph_t* graph, filter_call_t* filter, trail_t** p_trail);

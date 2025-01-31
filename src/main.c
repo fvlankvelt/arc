@@ -12,7 +12,6 @@ int main(int argc, char* argv[]) {
     task_def_t* tasks = list_tasks();
     int n_tasks = 0;
     for (task_def_t* task_def = tasks; task_def; task_def = task_def->next) {
-        printf("%s\n", task_def->name);
         const char* source = read_task(task_def->name);
         if (source) {
             task_def->task = parse_task(source);
@@ -20,11 +19,14 @@ int main(int argc, char* argv[]) {
         n_tasks++;
     }
 
-    guide_t* guide = new_guide();
-    init_image(guide);
-    init_filter(guide);
-    init_binding(guide);
-    init_transform(guide);
+    guide_builder_t builder;
+    init_guide(&builder);
+
+    init_image(&builder);
+    init_filter(&builder);
+    init_binding(&builder);
+    init_transform(&builder);
+    guide_t* guide = build_guide(&builder);
 
     while (true) {
         for (task_def_t* task_def = tasks; task_def; task_def = task_def->next) {
@@ -33,6 +35,7 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
+            printf("%s\n", task_def->name);
             for (int i_train = 0; i_train < task->n_train; i_train++) {
                 const graph_t* input = task->train_input[i_train];
                 const graph_t* output = task->train_output[i_train];
@@ -88,8 +91,7 @@ int main(int argc, char* argv[]) {
                 train_trail = observe_abstraction(train_trail, abstraction);
                 train_trail = observe_filter(train_trail, filter);
                 train_trail = observe_transform(train_trail, call);
-                mark_success(train_trail);
-                free_trail(guide, train_trail);
+                free_trail(guide, train_trail, true);
 
                 free_graph(reconstructed);
 
@@ -102,7 +104,7 @@ int main(int argc, char* argv[]) {
             no_filter:
                 free_graph(graph);
 
-                free_trail(guide, trail);
+                free_trail(guide, trail, false);
             }
         }
     }

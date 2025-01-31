@@ -282,12 +282,12 @@ void get_filter_arguments(const graph_t* graph, filter_valid_arguments_t* valid)
     }
 }
 
-void init_filter(guide_t* guide) {
+void init_filter(guide_builder_t* builder) {
     int n_filters = 0;
     while (filter_funcs[n_filters].func != NULL) {
         n_filters++;
     }
-    add_choice(guide, n_filters, "filter");
+    add_choice(builder, n_filters, "filter");
 
     filter_argument_values.n_size = MAX_ARGUMENT_VALUES;
     int* size = filter_argument_values.size;
@@ -297,7 +297,7 @@ void init_filter(guide_t* guide) {
     for (int i = 3; i < MAX_ARGUMENT_VALUES; i++) {
         size[i] = i - 2;
     }
-    add_choice(guide, filter_argument_values.n_size, "filter:size");
+    add_choice(builder, filter_argument_values.n_size, "filter:size");
 
     filter_argument_values.n_degree = MAX_ARGUMENT_VALUES;
     int* degree = filter_argument_values.degree;
@@ -307,13 +307,13 @@ void init_filter(guide_t* guide) {
     for (int i = 3; i < MAX_ARGUMENT_VALUES; i++) {
         degree[i] = i - 2;
     }
-    add_choice(guide, filter_argument_values.n_degree, "filter:degree");
+    add_choice(builder, filter_argument_values.n_degree, "filter:degree");
 
     filter_argument_values.n_exclude = 2;
     bool* exclude = filter_argument_values.exclude;
     exclude[0] = true;
     exclude[1] = false;
-    add_choice(guide, filter_argument_values.n_exclude, "filter:exclude");
+    add_choice(builder, filter_argument_values.n_exclude, "filter:exclude");
 
     filter_argument_values.n_color = 2;
     color_t* color = filter_argument_values.color;
@@ -322,7 +322,7 @@ void init_filter(guide_t* guide) {
     for (color_t c = 0; c < 10; c++) {
         color[filter_argument_values.n_color++] = c;
     }
-    add_choice(guide, filter_argument_values.n_color, "filter:color");
+    add_choice(builder, filter_argument_values.n_color, "filter:color");
 }
 
 /**

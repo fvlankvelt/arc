@@ -309,12 +309,12 @@ struct {
     // relative_position_t relative_pos[3];
 } transform_argument_values;
 
-void init_transform(guide_t* guide) {
+void init_transform(guide_builder_t* builder) {
     int n_funcs = 0;
     while (transformations[n_funcs].func != NULL) {
         n_funcs++;
     }
-    add_choice(guide, n_funcs, "transform:func");
+    add_choice(builder, n_funcs, "transform:func");
 
     transform_argument_values.n_color = 3;
     color_t* colors = transform_argument_values.color;
@@ -324,7 +324,7 @@ void init_transform(guide_t* guide) {
     for (color_t color = 0; color < 10; color++) {
         colors[transform_argument_values.n_color++] = color;
     }
-    add_binding(guide, "transform:color");
+    add_binding(builder, "transform:color");
 
     transform_argument_values.n_direction = DOWN_RIGHT + 2;
     direction_t* directions = transform_argument_values.direction;
@@ -332,13 +332,13 @@ void init_transform(guide_t* guide) {
     for (direction_t dir = UP; dir <= DOWN_RIGHT; dir++) {
         directions[dir + 1] = dir;
     }
-    add_binding(guide, "transform:direction");
+    add_binding(builder, "transform:direction");
 
     transform_argument_values.n_overlap = 2;
     bool* overlap = transform_argument_values.overlap;
     overlap[0] = true;
     overlap[1] = false;
-    add_choice(guide, 2, "transform:overlap");
+    add_choice(builder, 2, "transform:overlap");
 }
 
 transform_call_t* sample_transform(

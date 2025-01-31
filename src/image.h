@@ -21,7 +21,7 @@ typedef struct _abstraction {
 
 extern abstraction_t abstractions[];
 
-void init_image(guide_t* guide);
+void init_image(guide_builder_t* guide);
 
 abstraction_t* sample_abstraction(trail_t** trail);
 

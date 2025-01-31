@@ -333,23 +333,23 @@ abstraction_t abstractions[] = {
         .func = NULL,
     }};
 
-void init_image(guide_t* guide) {
+void init_image(guide_builder_t* builder) {
     int n_abstractions = 0;
     while (abstractions[n_abstractions].func != NULL) {
         n_abstractions++;
     }
-    add_choice(guide, n_abstractions, "abstraction");
+    add_choice(builder, n_abstractions, "abstraction");
 }
 
-abstraction_t* sample_abstraction(trail_t** trail) {
-    categorical_t* dist = next_choice(*trail);
+abstraction_t* sample_abstraction(trail_t** p_trail) {
+    const categorical_t* dist = next_choice(*p_trail);
     int abs_idx = choose(dist);
-    *trail = observe_choice(*trail, abs_idx);
+    *p_trail = observe_choice(*p_trail, abs_idx);
     return &abstractions[abs_idx];
 }
 
 trail_t* observe_abstraction(trail_t* trail, abstraction_t* abstraction) {
-    categorical_t* dist = next_choice(trail);
+    const categorical_t* dist = next_choice(trail);
     int abs_idx = 0;
     while (abstractions[abs_idx].func != NULL) {
         if (&abstractions[abs_idx] == abstraction) {

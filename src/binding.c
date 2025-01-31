@@ -144,10 +144,10 @@ void get_binding_arguments(const graph_t* graph, binding_valid_arguments_t* vali
     }
 }
 
-void init_binding(__attribute__((unused)) guide_t* guide) {
-    int n_bindings = 0;
-    while (binding_funcs[n_bindings].func != NULL) {
-        n_bindings++;
+void init_binding(__attribute__((unused)) guide_builder_t* builder) {
+    binding_argument_values.n_bindings = 0;
+    while (binding_funcs[binding_argument_values.n_bindings].func != NULL) {
+        binding_argument_values.n_bindings++;
     }
 
     binding_argument_values.n_size = MAX_ARGUMENT_VALUES;
@@ -182,18 +182,19 @@ void init_binding(__attribute__((unused)) guide_t* guide) {
     }
 }
 
-void add_binding_choice(guide_t* guide, int n_choices, const char* prefix, const char* suffix) {
+void add_binding_choice(
+    guide_builder_t* builder, int n_choices, const char* prefix, const char* suffix) {
     char* buffer = malloc(strlen(prefix) + strlen(suffix) + 2);
     sprintf(buffer, "%s:%s", prefix, suffix);
-    add_choice(guide, n_choices, buffer);
+    add_choice(builder, n_choices, buffer);
 }
 
-void add_binding(guide_t* guide, const char* prefix) {
-    add_binding_choice(guide, binding_argument_values.n_bindings, prefix, "func");
-    add_binding_choice(guide, binding_argument_values.n_size, prefix, "size");
-    add_binding_choice(guide, binding_argument_values.n_degree, prefix, "degree");
-    add_binding_choice(guide, binding_argument_values.n_exclude, prefix, "exclude");
-    add_binding_choice(guide, binding_argument_values.n_color, prefix, "color");
+void add_binding(guide_builder_t* builder, const char* prefix) {
+    add_binding_choice(builder, binding_argument_values.n_bindings, prefix, "func");
+    add_binding_choice(builder, binding_argument_values.n_size, prefix, "size");
+    add_binding_choice(builder, binding_argument_values.n_degree, prefix, "degree");
+    add_binding_choice(builder, binding_argument_values.n_exclude, prefix, "exclude");
+    add_binding_choice(builder, binding_argument_values.n_color, prefix, "color");
 }
 
 binding_call_t* sample_binding(

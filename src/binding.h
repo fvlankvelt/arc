@@ -31,9 +31,9 @@ typedef struct _binding_call {
 
 node_t* get_binding_node(const graph_t* graph, const node_t* node, const binding_call_t* call);
 
-void init_binding(guide_t* guide);
+void init_binding(guide_builder_t* guide);
 
-void add_binding(guide_t* guide, const char* prefix);
+void add_binding(guide_builder_t* guide, const char* prefix);
 
 // sample a binding, or NULL when sample didn't match the graph/filter
 binding_call_t* sample_binding(
