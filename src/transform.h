@@ -6,7 +6,6 @@
 #include "binding.h"
 
 typedef enum _direction {
-    NO_DIRECTION = -1,
     UP = 0,
     DOWN,
     LEFT,

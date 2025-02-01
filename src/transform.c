@@ -176,27 +176,31 @@ transform_func_t transformations[] = {
         .func = NULL,
     }};
 
-direction_t get_relative_pos(const node_t* node, const node_t* other) {
+bool get_relative_pos(const node_t* node, const node_t* other, direction_t* direction) {
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t sub_node = get_subnode(node, i);
         for (int j = 0; j < other->n_subnodes; j++) {
             subnode_t sub_other = get_subnode(other, j);
             if (sub_node.coord.pri == sub_other.coord.pri) {
                 if (sub_node.coord.sec < sub_other.coord.sec) {
-                    return RIGHT;
+                    *direction = RIGHT;
+                    return true;
                 } else if (sub_node.coord.sec > sub_other.coord.sec) {
-                    return LEFT;
+                    *direction = LEFT;
+                    return true;
                 }
             } else if (sub_node.coord.sec == sub_other.coord.sec) {
                 if (sub_node.coord.pri < sub_other.coord.pri) {
-                    return UP;
+                    *direction = UP;
+                    return true;
                 } else if (sub_node.coord.pri > sub_other.coord.pri) {
-                    return DOWN;
+                    *direction = DOWN;
+                    return true;
                 }
             }
         }
     }
-    return NO_DIRECTION;
+    return false;
 }
 
 coordinate_t get_centroid(const node_t* node) {
@@ -259,9 +263,7 @@ bool apply_binding(
     if (dynamic->direction) {
         binding_call_t* binding = dynamic->direction;
         node_t* target = get_binding_node(graph, node, binding);
-        if (target) {
-            args->direction = get_relative_pos(node, target);
-        } else {
+        if (!target || !get_relative_pos(node, target, &args->direction)) {
             return false;
         }
     }

@@ -121,16 +121,14 @@ class NNetGuide {
 
 class NNetTrail {
    public:
-    NNetTrail(NNetGuide* guide, const Tensor& input, const float * data)
+    NNetTrail(NNetGuide* guide, const Tensor& input, const float* data)
         : guide(guide),
           loss(torch::zeros({1}, TensorOptions().requires_grad(true))),
           iter(guide->steps.begin()),
           image_state(guide->to_state->forward(input)),
           data(data) {}
 
-    ~NNetTrail() {
-        delete data;
-    }
+    ~NNetTrail() { delete data; }
 
     void next_choice(double* p) {
         auto mod = *iter;
@@ -161,7 +159,7 @@ class NNetTrail {
     Tensor projected_state;
     Tensor dist_state;
     Tensor loss;
-    const float * data;
+    const float* data;
 };
 
 class NNetBuilder {
@@ -203,20 +201,26 @@ trail_net_t create_network_trail(
     unsigned int output_width,
     unsigned int output_height,
     unsigned int* output_pixels) {
+    // copy the input data by creating a 3d representation (each color has a depth)
     NNetGuide* guide = static_cast<NNetGuide*>(c_guide);
-    float * data = (float *) calloc(10 * input_width * input_height, sizeof(float));
+    float* data = (float*)calloc(10 * (input_width + 2) * (input_height + 2), sizeof(float));
     for (int y = 0; y < input_height; y++) {
         for (int x = 0; x < input_width; x++) {
-            int idx = y * input_width + x;
-            int z = input_pixels[idx];
+            int input_idx = y * input_width + x;
+            int z = input_pixels[input_idx];
+            int input_data_idx = (y + 1) * (input_width + 2) + (x + 1);
             // printf("SETTING (0, %d, %d, %d) to 1.0", z, y, z);
             // fflush(stdout);
             // tensor[0, z, y, x] = 1.0;
-            data[10 * idx + z] = 1.0f;
+            data[10 * input_data_idx + z] = 1.0f;
         }
     }
 
-    return new NNetTrail(guide, torch::from_blob(data, {1, 10, input_height, input_width}, TensorOptions().dtype(kFloat)), data);
+    return new NNetTrail(
+        guide,
+        torch::from_blob(
+            data, {1, 10, input_height + 2, input_width + 2}, TensorOptions().dtype(kFloat)),
+        data);
 }
 
 void next_network_choice(trail_net_t c_trail, double* p) {
