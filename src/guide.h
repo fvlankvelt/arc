@@ -116,7 +116,7 @@ int choose_from(const categorical_t* dist, long valid_flags);
  * observed choices led to a succesful transformation of the input image to
  * the output image.
  */
-void free_trail(guide_t* guide, trail_t* trail, bool success);
+float free_trail(guide_t* guide, trail_t* trail, bool success);
 
 /*
 

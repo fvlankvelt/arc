@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
     init_transform(&builder);
     guide_t* guide = build_guide(&builder);
 
+    printf("task, example, loss, reconstructed, transformed\n");
     while (true) {
         for (task_def_t* task_def = tasks; task_def; task_def = task_def->next) {
             task_t* task = task_def->task;
@@ -35,7 +36,7 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-            printf("%s\n", task_def->name);
+            // printf("%s\n", task_def->name);
             for (int i_train = 0; i_train < task->n_train; i_train++) {
                 const graph_t* input = task->train_input[i_train];
                 const graph_t* output = task->train_output[i_train];
@@ -54,11 +55,13 @@ int main(int argc, char* argv[]) {
                 }
 
                 // printf("Found training example for %s\n", task_def->name);
+                bool transformed = false;
                 for (node_t* node = graph->nodes; node; node = node->next) {
                     if (filter->filter->func(graph, node, &filter->args)) {
                         transform_arguments_t transform_args = call->arguments;
                         if (apply_binding(graph, node, &call->dynamic, &transform_args)) {
                             call->transform->func(graph, node, &transform_args);
+                            transformed = true;
                         }
                     }
                 }
@@ -68,9 +71,9 @@ int main(int argc, char* argv[]) {
                     goto no_reconstruction;
                 }
 
+                bool is_correct = true;
                 if (output->width == reconstructed->width &&
                     output->height == reconstructed->height) {
-                    bool is_correct = true;
                     for (int x = 0; x < output->width; x++) {
                         for (int y = 0; y < output->height; y++) {
                             const node_t* node = get_node(reconstructed, (coordinate_t){x, y});
@@ -83,15 +86,18 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     if (is_correct) {
-                        printf("  %s: Correct transformation\n", task_def->name);
+                        fprintf(stderr, "  %s: Correct transformation\n", task_def->name);
                     }
+                } else {
+                    is_correct = false;
                 }
 
                 trail_t* train_trail = new_trail(input, reconstructed, guide);
                 train_trail = observe_abstraction(train_trail, abstraction);
                 train_trail = observe_filter(train_trail, filter);
                 train_trail = observe_transform(train_trail, call);
-                free_trail(guide, train_trail, true);
+                float loss = free_trail(guide, train_trail, true);
+                printf("%s, %d, %f, %d, %d\n", task_def->name, i_train, loss, is_correct, transformed);
 
                 free_graph(reconstructed);
 

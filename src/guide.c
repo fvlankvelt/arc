@@ -121,11 +121,12 @@ trail_t* new_trail(const graph_t* input, const graph_t* output, guide_t* guide) 
     return trail;
 }
 
-void free_trail(guide_t* guide, trail_t* trail, bool success) {
-    complete_trail(trail->_nnet_trail, success);
+float free_trail(guide_t* guide, trail_t* trail, bool success) {
+    float result = complete_trail(trail->_nnet_trail, success);
     for (trail_t* prev = trail->prev; trail; trail = prev, prev = trail ? trail->prev : NULL) {
         free_item(guide->_trail_mem, trail);
     }
+    return result;
 }
 
 trail_t* backtrack(trail_t* trail) {
@@ -179,9 +180,11 @@ const categorical_t* next_choice(trail_t* trail) {
     // double p[dist->size];
     next_network_choice(trail->_nnet_trail, dist->p);
 
-    // for (int i = 0; i < dist->size; i++) {
-        // dist->p[i] = 1.0 / dist->size;
-    // }
+    // encourage exploration - try something new in at least 10% of the cases
+    double base = 0.1;
+    for (int i = 0; i < dist->size; i++) {
+        dist->p[i] = (base / dist->size + dist->p[i]) / (1.0 + base);
+    }
     return dist;
 }
 

@@ -27,7 +27,7 @@ trail_net_t create_network_trail(
 
 void next_network_choice(trail_net_t trail, double * p);
 trail_net_t observe_network_choice(trail_net_t trail, int choice);
-void complete_trail(trail_net_t trail, bool success);
+float complete_trail(trail_net_t trail, bool success);
 
 #ifdef __cplusplus
 }

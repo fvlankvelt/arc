@@ -88,6 +88,12 @@ struct NNetModuleImpl : nn::Module {
           conv_output(register_module(
               "conv_output",
               nn::Conv3d(nn::Conv3dOptions(256, 256, {1, 3, 3}).padding({0, 1, 1})))),
+          conv_input_color(register_module(
+              "conv_input_color",
+              nn::Conv3d(nn::Conv3dOptions(256, 256, {1, 1, 1})))),
+          conv_output_color(register_module(
+              "conv_output_color",
+              nn::Conv3d(nn::Conv3dOptions(256, 256, {1, 1, 1})))),
           project_input(register_module("project_input", nn::Linear(256, 64))),
           project_output(register_module("project_output", nn::Linear(256, 64))),
           decode(register_module("decode", nn::Linear(128, n_choices))),
@@ -96,6 +102,8 @@ struct NNetModuleImpl : nn::Module {
     string name;
     nn::Conv3d conv_input;
     nn::Conv3d conv_output;
+    nn::Conv3d conv_input_color;
+    nn::Conv3d conv_output_color;
     nn::Linear project_input;
     nn::Linear project_output;
     nn::Sequential decode;
@@ -143,30 +151,40 @@ class NNetTrail {
 
     void next_choice(double* p) {
         auto mod = *iter;
-        input_state = mod->conv_input->forward(input_state);
+        // advance input_state in two steps
+        // - per color convolution over space
+        // - per pixel mixing of max over colors
+        input_state = torch::relu(mod->conv_input->forward(input_state));
         auto input_sizes = input_state.sizes();
         int input_height = input_sizes.at(2);
         int input_width = input_sizes.at(3);
+        auto max_input_color = max_pool3d(input_state, {10, 1, 1})
+                                   .expand({256, 10, input_height, input_width});
+        input_state = input_state + mod->conv_input_color->forward(max_input_color);
         auto max_input =
             max_pool3d(input_state, {10, input_height, input_width}).reshape({256});
         // cout << "INPUT SIZES: " << max_input.sizes() << endl;
-        auto projected_input = mod->project_input->forward(max_input);
+        auto projected_input = torch::relu(mod->project_input->forward(max_input));
 
-        output_state = mod->conv_output->forward(output_state);
+        output_state = torch::relu(mod->conv_output->forward(output_state));
         auto output_sizes = output_state.sizes();
         int output_height = output_sizes.at(2);
         int output_width = output_sizes.at(3);
+        auto max_output_color = max_pool3d(output_state, {10, 1, 1})
+                                   .expand({256, 10, output_height, output_width});
+        output_state = output_state + mod->conv_output_color->forward(max_output_color);
         auto max_output =
             max_pool3d(output_state, {10, output_height, output_width}).reshape({256});
         // cout << "OUTPUT SIZES: " << max_output.sizes() << endl;
-        auto projected_output = mod->project_output->forward(max_output);
+        auto projected_output = torch::relu(mod->project_output->forward(max_output));
 
         auto projected = torch::cat({projected_input, projected_output});
         // cout << "PROJECTED SIZES: " << projected.sizes() << endl;
         projected_state = projected_state + projected;
-        dist_state = mod->decode->forward(projected_state).softmax(0);
-        float* dist_values = (float*)dist_state.cpu().const_data_ptr();
-        for (int i = 0; i < dist_state.sizes().at(0); i++) {
+        dist_state = mod->decode->forward(projected_state);
+        auto soft_dist = dist_state.softmax(0);
+        float* dist_values = (float*)soft_dist.cpu().const_data_ptr();
+        for (int i = 0; i < soft_dist.sizes().at(0); i++) {
             p[i] = (double)dist_values[i];
         }
     }
@@ -177,14 +195,17 @@ class NNetTrail {
             target[choice] = 1.0;
             projected_state = projected_state + (*iter)->encode->forward(target);
             // cout << "adding loss " << endl;
-            loss = loss + binary_cross_entropy(dist_state, target).set_requires_grad(true);
+            loss = loss + cross_entropy_loss(dist_state, target).set_requires_grad(true);
         }
         ++iter;
     }
 
-    void train() {
+    float train() {
+        float * loss_value = (float *) loss.cpu().const_data_ptr();
+        // cout << "loss: " << loss_value[0] << endl;
         loss.backward();
         guide->step();
+        return loss_value[0];
     }
 
    private:
@@ -288,12 +309,14 @@ trail_net_t observe_network_choice(trail_net_t c_trail, int choice) {
     return trail;
 }
 
-void complete_trail(trail_net_t c_trail, bool success) {
+float complete_trail(trail_net_t c_trail, bool success) {
     NNetTrail* trail = static_cast<NNetTrail*>(c_trail);
+    float result = 0.0f;
     if (success) {
-        trail->train();
+        result = trail->train();
     }
     delete trail;
+    return result;
 }
 }
 
