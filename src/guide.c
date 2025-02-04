@@ -78,18 +78,33 @@ trail_t* new_trail(const graph_t* input, const graph_t* output, guide_t* guide) 
     trail->dist.size = trail->cursor->n_choices;
     trail->dist.rnd = &guide->_random;
 
-    int* image = malloc(input->width * input->height * sizeof(int));
+    unsigned int* input_pixels = malloc(input->width * input->height * sizeof(int));
     for (int x = 0; x < input->width; x++) {
         for (int y = 0; y < input->height; y++) {
             int idx = y * input->width + x;
-            image[idx] = input->background_color;
+            input_pixels[idx] = input->background_color;
         }
     }
     for (node_t* node = input->nodes; node; node = node->next) {
         for (int i = 0; i < node->n_subnodes; i++) {
             subnode_t subnode = get_subnode(node, i);
             int idx = subnode.coord.sec * input->width + subnode.coord.pri;
-            image[idx] = subnode.color;
+            input_pixels[idx] = subnode.color;
+        }
+    }
+
+    unsigned int* output_pixels = malloc(output->width * output->height * sizeof(int));
+    for (int x = 0; x < output->width; x++) {
+        for (int y = 0; y < output->height; y++) {
+            int idx = y * output->width + x;
+            output_pixels[idx] = output->background_color;
+        }
+    }
+    for (node_t* node = output->nodes; node; node = node->next) {
+        for (int i = 0; i < node->n_subnodes; i++) {
+            subnode_t subnode = get_subnode(node, i);
+            int idx = subnode.coord.sec * output->width + subnode.coord.pri;
+            output_pixels[idx] = subnode.color;
         }
     }
 
@@ -97,11 +112,12 @@ trail_t* new_trail(const graph_t* input, const graph_t* output, guide_t* guide) 
         guide->_nnet_guide,
         input->width,
         input->height,
-        image,
+        input_pixels,
         output->width,
         output->height,
-        NULL);
-    free(image);
+        output_pixels);
+    free(input_pixels);
+    free(output_pixels);
     return trail;
 }
 
@@ -133,6 +149,7 @@ trail_t* observe_choice(trail_t* prev, int choice) {
     trail->dist.rnd = &trail->guide->_random;
     trail->choice = -1;
 
+    observe_network_choice(prev->_nnet_trail, choice);
     trail->_nnet_trail = prev->_nnet_trail;
     return trail;
 }
@@ -159,9 +176,12 @@ const categorical_t* next_choice(trail_t* trail) {
                 break;
         }
     }
-    for (int i = 0; i < 10; i++) {
-        dist->p[i] = 1.0 / dist->size;
-    }
+    // double p[dist->size];
+    next_network_choice(trail->_nnet_trail, dist->p);
+
+    // for (int i = 0; i < dist->size; i++) {
+        // dist->p[i] = 1.0 / dist->size;
+    // }
     return dist;
 }
 
