@@ -160,10 +160,11 @@ struct NNetModuleImpl : nn::Module {
     NNetState observe(NNetState& state, int choice) {
         Tensor target = torch::zeros(state.dist_state.sizes());
         target[choice] = 1.0;
-        Tensor projected_state = state.projected_state + encode->forward(target);
+        Tensor cuda_target = target.cuda();
+        Tensor projected_state = state.projected_state + encode->forward(cuda_target);
         // cout << "adding loss " << endl;
         Tensor loss =
-            state.loss + cross_entropy_loss(state.dist_state, target).set_requires_grad(true);
+            state.loss + cross_entropy_loss(state.dist_state, cuda_target).set_requires_grad(true);
         return {state.input_state, state.output_state, projected_state, state.dist_state, loss};
     }
 
@@ -202,17 +203,17 @@ class NNetGuide : nn::Module {
             std::string name = "choice_" + std::to_string(index++);
             register_module(name, step);
         }
-        // to(kCUDA);
+        to(kCUDA);
         optimizer.add_param_group(parameters());
     }
 
     NNetState new_state(const Tensor& input, const Tensor& output) {
         return {
-            init_input->forward(input),
-            init_output->forward(output),
-            torch::zeros({config.projected_width}),
-            torch::zeros({0}),
-            torch::zeros({1}, TensorOptions().requires_grad(true)),
+            init_input->forward(input.cuda()),
+            init_output->forward(output.cuda()),
+            torch::zeros({config.projected_width}).cuda(),
+            torch::zeros({0}).cuda(),
+            torch::zeros({1}, TensorOptions().requires_grad(true)).cuda(),
         };
     }
 
@@ -237,10 +238,10 @@ class NNetTrail {
 
     void next_choice(double* p) {
         state = (*iter)->forward(state);
-        auto soft_dist = state.dist_state.softmax(0);
-        float* dist_values = (float*)soft_dist.cpu().const_data_ptr();
+        auto soft_dist = state.dist_state.softmax(0).to(kFloat64).cpu();
+        double* dist_values = (double*)soft_dist.data_ptr();
         for (int i = 0; i < soft_dist.sizes().at(0); i++) {
-            p[i] = (double)dist_values[i];
+            p[i] = dist_values[i];
         }
     }
 
@@ -252,11 +253,11 @@ class NNetTrail {
     }
 
     float train() {
-        float* loss_value = (float*)state.loss.cpu().const_data_ptr();
+        double loss_value = state.loss.item().toDouble();
         // cout << "loss: " << loss_value[0] << endl;
         state.loss.backward();
         guide->step();
-        return loss_value[0];
+        return loss_value;
     }
 
    private:
