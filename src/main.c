@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
     init_transform(&builder);
     guide_t* guide = build_guide(&builder);
 
-    printf("task, example, loss, reconstructed, transformed\n");
+    printf("task,example,loss,reconstructed,transformed\n");
     while (true) {
         for (task_def_t* task_def = tasks; task_def; task_def = task_def->next) {
             task_t* task = task_def->task;

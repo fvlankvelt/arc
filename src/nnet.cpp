@@ -112,18 +112,22 @@ struct NNetModuleImpl : nn::Module {
 
 TORCH_MODULE(NNetModule);
 
-class NNetGuide {
+class NNetGuide : nn::Module {
     friend class NNetTrail;
 
    public:
     NNetGuide(vector<NNetModule>& steps)
-        : init_input(nn::Conv3dOptions(1, 256, {1, 3, 3}).padding({0, 1, 1})),
-          init_output(nn::Conv3dOptions(1, 256, {1, 3, 3}).padding({0, 1, 1})),
+        : init_input(register_module("init_input", nn::Conv3d(nn::Conv3dOptions(1, 256, {1, 3, 3}).padding({0, 1, 1})))),
+          init_output(register_module("init_output", nn::Conv3d(nn::Conv3dOptions(1, 256, {1, 3, 3}).padding({0, 1, 1})))),
           steps(steps),
-          optimizer(init_input->parameters()) {
+          optimizer(std::vector<optim::OptimizerParamGroup>()) {
+        int index = 0;
         for (auto& step : steps) {
-            optimizer.add_param_group(optim::OptimizerParamGroup(step->parameters()));
+            std::string name = "choice_" + std::to_string(index++);
+            register_module(name, step);
         }
+        // to(kCUDA);
+        optimizer.add_param_group(parameters());
     }
 
    private:
