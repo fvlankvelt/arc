@@ -97,7 +97,7 @@ int main(int argc, char* argv[]) {
                 train_trail = observe_filter(train_trail, filter);
                 train_trail = observe_transform(train_trail, call);
                 float loss = free_trail(guide, train_trail, true);
-                printf("%s, %d, %f, %d, %d\n", task_def->name, i_train, loss, is_correct, transformed);
+                printf("%s, %d, %.12f, %d, %d\n", task_def->name, i_train, loss, is_correct, transformed);
 
                 free_graph(reconstructed);
 

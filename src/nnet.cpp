@@ -79,26 +79,95 @@ using namespace std;
 
 class NNetTrail;
 
+struct NNetConfig {
+    int n_conv_channels;
+    int projected_width;
+};
+
+struct NNetState {
+    Tensor input_state;
+    Tensor output_state;
+    Tensor projected_state;
+    Tensor dist_state;
+    Tensor loss;
+};
+
 struct NNetModuleImpl : nn::Module {
-    NNetModuleImpl(int n_choices, const string& name)
-        : name(name),
+    NNetModuleImpl(const NNetConfig& config, int n_choices, const string& name)
+        : config(config),
+          name(name),
           conv_input(register_module(
               "conv_input",
-              nn::Conv3d(nn::Conv3dOptions(256, 256, {1, 3, 3}).padding({0, 1, 1})))),
+              nn::Conv3d(
+                  nn::Conv3dOptions(config.n_conv_channels, config.n_conv_channels, {1, 3, 3})
+                      .padding({0, 1, 1})))),
           conv_output(register_module(
               "conv_output",
-              nn::Conv3d(nn::Conv3dOptions(256, 256, {1, 3, 3}).padding({0, 1, 1})))),
+              nn::Conv3d(
+                  nn::Conv3dOptions(config.n_conv_channels, config.n_conv_channels, {1, 3, 3})
+                      .padding({0, 1, 1})))),
           conv_input_color(register_module(
               "conv_input_color",
-              nn::Conv3d(nn::Conv3dOptions(256, 256, {1, 1, 1})))),
+              nn::Conv3d(nn::Conv3dOptions(
+                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
           conv_output_color(register_module(
               "conv_output_color",
-              nn::Conv3d(nn::Conv3dOptions(256, 256, {1, 1, 1})))),
-          project_input(register_module("project_input", nn::Linear(256, 64))),
-          project_output(register_module("project_output", nn::Linear(256, 64))),
-          decode(register_module("decode", nn::Linear(128, n_choices))),
-          encode(register_module("encode", nn::Linear(n_choices, 128))) {}
+              nn::Conv3d(nn::Conv3dOptions(
+                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
+          project_input(register_module(
+              "project_input", nn::Linear(config.n_conv_channels, config.projected_width / 2))),
+          project_output(register_module(
+              "project_output",
+              nn::Linear(config.n_conv_channels, config.projected_width / 2))),
+          decode(register_module("decode", nn::Linear(config.projected_width, n_choices))),
+          encode(register_module("encode", nn::Linear(n_choices, config.projected_width))) {}
 
+    NNetState forward(NNetState& state) {
+        Tensor input_state = torch::relu(conv_input->forward(state.input_state));
+        auto input_sizes = input_state.sizes();
+        int input_height = input_sizes.at(2);
+        int input_width = input_sizes.at(3);
+        auto max_input_color =
+            max_pool3d(input_state, {10, 1, 1})
+                .expand({config.n_conv_channels, 10, input_height, input_width});
+        input_state = input_state + conv_input_color->forward(max_input_color);
+        auto max_input = max_pool3d(input_state, {10, input_height, input_width})
+                             .reshape({config.n_conv_channels});
+        // cout << "INPUT SIZES: " << max_input.sizes() << endl;
+        auto projected_input = torch::relu(project_input->forward(max_input));
+
+        Tensor output_state = torch::relu(conv_output->forward(state.output_state));
+        auto output_sizes = output_state.sizes();
+        int output_height = output_sizes.at(2);
+        int output_width = output_sizes.at(3);
+        auto max_output_color =
+            max_pool3d(output_state, {10, 1, 1})
+                .expand({config.n_conv_channels, 10, output_height, output_width});
+        output_state = output_state + conv_output_color->forward(max_output_color);
+        auto max_output = max_pool3d(output_state, {10, output_height, output_width})
+                              .reshape({config.n_conv_channels});
+        // cout << "OUTPUT SIZES: " << max_output.sizes() << endl;
+        auto projected_output = torch::relu(project_output->forward(max_output));
+
+        auto projected = torch::cat({projected_input, projected_output});
+        // cout << "PROJECTED SIZES: " << projected.sizes() << endl;
+        Tensor projected_state = state.projected_state + projected;
+        Tensor dist_state = decode->forward(projected_state);
+
+        return {input_state, output_state, projected_state, dist_state, state.loss};
+    }
+
+    NNetState observe(NNetState& state, int choice) {
+        Tensor target = torch::zeros(state.dist_state.sizes());
+        target[choice] = 1.0;
+        Tensor projected_state = state.projected_state + encode->forward(target);
+        // cout << "adding loss " << endl;
+        Tensor loss =
+            state.loss + cross_entropy_loss(state.dist_state, target).set_requires_grad(true);
+        return {state.input_state, state.output_state, projected_state, state.dist_state, loss};
+    }
+
+    NNetConfig config;
     string name;
     nn::Conv3d conv_input;
     nn::Conv3d conv_output;
@@ -116,9 +185,16 @@ class NNetGuide : nn::Module {
     friend class NNetTrail;
 
    public:
-    NNetGuide(vector<NNetModule>& steps)
-        : init_input(register_module("init_input", nn::Conv3d(nn::Conv3dOptions(1, 256, {1, 3, 3}).padding({0, 1, 1})))),
-          init_output(register_module("init_output", nn::Conv3d(nn::Conv3dOptions(1, 256, {1, 3, 3}).padding({0, 1, 1})))),
+    NNetGuide(NNetConfig& config, vector<NNetModule>& steps)
+        : config(config),
+          init_input(register_module(
+              "init_input",
+              nn::Conv3d(
+                  nn::Conv3dOptions(1, config.n_conv_channels, {1, 3, 3}).padding({0, 1, 1})))),
+          init_output(register_module(
+              "init_output",
+              nn::Conv3d(
+                  nn::Conv3dOptions(1, config.n_conv_channels, {1, 3, 3}).padding({0, 1, 1})))),
           steps(steps),
           optimizer(std::vector<optim::OptimizerParamGroup>()) {
         int index = 0;
@@ -130,12 +206,23 @@ class NNetGuide : nn::Module {
         optimizer.add_param_group(parameters());
     }
 
+    NNetState new_state(const Tensor& input, const Tensor& output) {
+        return {
+            init_input->forward(input),
+            init_output->forward(output),
+            torch::zeros({config.projected_width}),
+            torch::zeros({0}),
+            torch::zeros({1}, TensorOptions().requires_grad(true)),
+        };
+    }
+
    private:
     void step() {
         optimizer.step();
         optimizer.zero_grad(true);
     }
 
+    NNetConfig config;
     // initial transformation from image to the internal (variable image) dimensions
     nn::Conv3d init_input;
     nn::Conv3d init_output;
@@ -146,47 +233,11 @@ class NNetGuide : nn::Module {
 class NNetTrail {
    public:
     NNetTrail(NNetGuide* guide, const Tensor& input, const Tensor& output)
-        : guide(guide),
-          loss(torch::zeros({1}, TensorOptions().requires_grad(true))),
-          iter(guide->steps.begin()),
-          input_state(guide->init_input->forward(input)),
-          output_state(guide->init_output->forward(output)),
-          projected_state(torch::zeros({128})) {}
+        : guide(guide), iter(guide->steps.begin()), state(guide->new_state(input, output)) {}
 
     void next_choice(double* p) {
-        auto mod = *iter;
-        // advance input_state in two steps
-        // - per color convolution over space
-        // - per pixel mixing of max over colors
-        input_state = torch::relu(mod->conv_input->forward(input_state));
-        auto input_sizes = input_state.sizes();
-        int input_height = input_sizes.at(2);
-        int input_width = input_sizes.at(3);
-        auto max_input_color = max_pool3d(input_state, {10, 1, 1})
-                                   .expand({256, 10, input_height, input_width});
-        input_state = input_state + mod->conv_input_color->forward(max_input_color);
-        auto max_input =
-            max_pool3d(input_state, {10, input_height, input_width}).reshape({256});
-        // cout << "INPUT SIZES: " << max_input.sizes() << endl;
-        auto projected_input = torch::relu(mod->project_input->forward(max_input));
-
-        output_state = torch::relu(mod->conv_output->forward(output_state));
-        auto output_sizes = output_state.sizes();
-        int output_height = output_sizes.at(2);
-        int output_width = output_sizes.at(3);
-        auto max_output_color = max_pool3d(output_state, {10, 1, 1})
-                                   .expand({256, 10, output_height, output_width});
-        output_state = output_state + mod->conv_output_color->forward(max_output_color);
-        auto max_output =
-            max_pool3d(output_state, {10, output_height, output_width}).reshape({256});
-        // cout << "OUTPUT SIZES: " << max_output.sizes() << endl;
-        auto projected_output = torch::relu(mod->project_output->forward(max_output));
-
-        auto projected = torch::cat({projected_input, projected_output});
-        // cout << "PROJECTED SIZES: " << projected.sizes() << endl;
-        projected_state = projected_state + projected;
-        dist_state = mod->decode->forward(projected_state);
-        auto soft_dist = dist_state.softmax(0);
+        state = (*iter)->forward(state);
+        auto soft_dist = state.dist_state.softmax(0);
         float* dist_values = (float*)soft_dist.cpu().const_data_ptr();
         for (int i = 0; i < soft_dist.sizes().at(0); i++) {
             p[i] = (double)dist_values[i];
@@ -195,19 +246,15 @@ class NNetTrail {
 
     void observe(int choice) {
         if (choice >= 0) {
-            Tensor target = torch::zeros(dist_state.sizes());
-            target[choice] = 1.0;
-            projected_state = projected_state + (*iter)->encode->forward(target);
-            // cout << "adding loss " << endl;
-            loss = loss + cross_entropy_loss(dist_state, target).set_requires_grad(true);
+            state = (*iter)->observe(state, choice);
         }
         ++iter;
     }
 
     float train() {
-        float * loss_value = (float *) loss.cpu().const_data_ptr();
+        float* loss_value = (float*)state.loss.cpu().const_data_ptr();
         // cout << "loss: " << loss_value[0] << endl;
-        loss.backward();
+        state.loss.backward();
         guide->step();
         return loss_value[0];
     }
@@ -215,33 +262,44 @@ class NNetTrail {
    private:
     NNetGuide* guide;
     vector<NNetModule>::iterator iter;
-    Tensor input_state;
-    Tensor output_state;
-    Tensor projected_state;
-    Tensor dist_state;
-    Tensor loss;
+    NNetState state;
 };
 
 class NNetBuilder {
    public:
-    NNetBuilder() : choices() {}
+    NNetBuilder() : steps() {}
+
+    NNetBuilder& n_conv_channels(int n_channels) {
+        config.n_conv_channels = n_channels;
+        return *this;
+    }
+
+    NNetBuilder& projected_width(int width) {
+        config.projected_width = width;
+        return *this;
+    }
 
     void add_choice(unsigned int n_choices, const string& name) {
-        choices.push_back(NNetModule(n_choices, name));
+        steps.push_back(NNetModule(config, n_choices, name));
     }
 
     NNetGuide* build() {
-        NNetGuide* guide = new NNetGuide(choices);
+        NNetGuide* guide = new NNetGuide(config, steps);
         return guide;
     }
 
    private:
-    vector<NNetModule> choices;
+    NNetConfig config;
+    vector<NNetModule> steps;
 };
 
 extern "C" {
 
-guide_net_builder_t create_network() { return new NNetBuilder(); }
+guide_net_builder_t create_network() {
+    NNetBuilder* builder = new NNetBuilder();
+    builder->n_conv_channels(256).projected_width(128);
+    return builder;
+}
 
 void add_choice_to_net(guide_net_builder_t net, int n_choices, const char* name) {
     NNetBuilder* builder = static_cast<NNetBuilder*>(net);
