@@ -92,28 +92,75 @@ struct NNetState {
     Tensor loss;
 };
 
+/**
+ * evolve image in a color-permutation symmetric way
+ * The kernels used are shared across colors
+ */
+struct NNetImageStepImpl : nn::Module {
+    NNetImageStepImpl(const NNetConfig& config)
+        : config(config),
+          conv(register_module(
+              "conv",
+              nn::Conv3d(
+                  nn::Conv3dOptions(config.n_conv_channels, config.n_conv_channels, {1, 3, 3})
+                      .padding({0, 1, 1})))),
+          conv_color(register_module(
+              "conv_color",
+              nn::Conv3d(nn::Conv3dOptions(
+                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
+          conv_horizontal(register_module(
+              "conv_horizontal",
+              nn::Conv3d(nn::Conv3dOptions(
+                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
+          conv_vertical(register_module(
+              "conv_vertical",
+              nn::Conv3d(nn::Conv3dOptions(
+                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))) {}
+
+    Tensor forward(Tensor& input) {
+        auto input_sizes = input.sizes();
+        int input_height = input_sizes.at(2);
+        int input_width = input_sizes.at(3);
+
+        Tensor input_state = torch::relu(conv->forward(input));
+
+        // compute the max value per (channel, x, y) over all colors
+        // add affine transform back from the original
+        auto avg_input_color = conv_color->forward(max_pool3d(input_state, {10, 1, 1}));
+        input_state = input_state +
+               avg_input_color.expand({config.n_conv_channels, 10, input_height, input_width});
+
+        // compute max value per (channel, color, y) over width of image
+        // add affine transform back to the original
+        auto project_horizontal = conv_horizontal->forward(max_pool3d(input_state, {1, 1, input_width}));
+        input_state = input_state +
+                project_horizontal.expand({config.n_conv_channels, 10, input_height, input_width});
+
+        // compute max value per (channel, color, x) over height of image
+        // add affine transform back to the original
+        auto project_vertical = conv_vertical->forward(max_pool3d(input_state, {1, input_height, 1}));
+        input_state = input_state +
+                project_vertical.expand({config.n_conv_channels, 10, input_height, input_width});
+
+        return input_state;
+    }
+
+   private:
+    NNetConfig config;
+    nn::Conv3d conv;
+    nn::Conv3d conv_color;
+    nn::Conv3d conv_horizontal;
+    nn::Conv3d conv_vertical;
+};
+
+TORCH_MODULE(NNetImageStep);
+
 struct NNetModuleImpl : nn::Module {
-    NNetModuleImpl(const NNetConfig& config, int n_choices, const string& name)
+    NNetModuleImpl(const NNetConfig& config, int n_choices, const std::string& name)
         : config(config),
           name(name),
-          conv_input(register_module(
-              "conv_input",
-              nn::Conv3d(
-                  nn::Conv3dOptions(config.n_conv_channels, config.n_conv_channels, {1, 3, 3})
-                      .padding({0, 1, 1})))),
-          conv_output(register_module(
-              "conv_output",
-              nn::Conv3d(
-                  nn::Conv3dOptions(config.n_conv_channels, config.n_conv_channels, {1, 3, 3})
-                      .padding({0, 1, 1})))),
-          conv_input_color(register_module(
-              "conv_input_color",
-              nn::Conv3d(nn::Conv3dOptions(
-                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
-          conv_output_color(register_module(
-              "conv_output_color",
-              nn::Conv3d(nn::Conv3dOptions(
-                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
+          input_step(register_module("conv_input", NNetImageStep(config))),
+          output_step(register_module("conv_output", NNetImageStep(config))),
           project_input(register_module(
               "project_input", nn::Linear(config.n_conv_channels, config.projected_width / 2))),
           project_output(register_module(
@@ -123,27 +170,19 @@ struct NNetModuleImpl : nn::Module {
           encode(register_module("encode", nn::Linear(n_choices, config.projected_width))) {}
 
     NNetState forward(NNetState& state) {
-        Tensor input_state = torch::relu(conv_input->forward(state.input_state));
+        Tensor input_state = input_step->forward(state.input_state);
         auto input_sizes = input_state.sizes();
         int input_height = input_sizes.at(2);
         int input_width = input_sizes.at(3);
-        auto max_input_color =
-            max_pool3d(input_state, {10, 1, 1})
-                .expand({config.n_conv_channels, 10, input_height, input_width});
-        input_state = input_state + conv_input_color->forward(max_input_color);
         auto max_input = max_pool3d(input_state, {10, input_height, input_width})
                              .reshape({config.n_conv_channels});
         // cout << "INPUT SIZES: " << max_input.sizes() << endl;
         auto projected_input = torch::relu(project_input->forward(max_input));
 
-        Tensor output_state = torch::relu(conv_output->forward(state.output_state));
+        Tensor output_state = output_step->forward(state.output_state);
         auto output_sizes = output_state.sizes();
         int output_height = output_sizes.at(2);
         int output_width = output_sizes.at(3);
-        auto max_output_color =
-            max_pool3d(output_state, {10, 1, 1})
-                .expand({config.n_conv_channels, 10, output_height, output_width});
-        output_state = output_state + conv_output_color->forward(max_output_color);
         auto max_output = max_pool3d(output_state, {10, output_height, output_width})
                               .reshape({config.n_conv_channels});
         // cout << "OUTPUT SIZES: " << max_output.sizes() << endl;
@@ -163,17 +202,15 @@ struct NNetModuleImpl : nn::Module {
         Tensor cuda_target = target.cuda();
         Tensor projected_state = state.projected_state + encode->forward(cuda_target);
         // cout << "adding loss " << endl;
-        Tensor loss =
-            state.loss + cross_entropy_loss(state.dist_state, cuda_target).set_requires_grad(true);
+        Tensor loss = state.loss +
+                      cross_entropy_loss(state.dist_state, cuda_target).set_requires_grad(true);
         return {state.input_state, state.output_state, projected_state, state.dist_state, loss};
     }
 
     NNetConfig config;
-    string name;
-    nn::Conv3d conv_input;
-    nn::Conv3d conv_output;
-    nn::Conv3d conv_input_color;
-    nn::Conv3d conv_output_color;
+    std::string name;
+    NNetImageStep input_step;
+    NNetImageStep output_step;
     nn::Linear project_input;
     nn::Linear project_output;
     nn::Sequential decode;
