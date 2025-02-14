@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
 
     MTRand rnd = seedRand(1234l);
 
-    fprintf(out, "task,example,loss,reconstructed,transformed\n");
+    fprintf(out, "task,example,loss,reconstructed,abstraction,filter,transform\n");
     while (true) {
         int i_task = genRandLong(&rnd) % n_tasks;
         task_def_t* task_def = task_array[i_task];
@@ -104,20 +104,24 @@ int main(int argc, char* argv[]) {
             is_correct = false;
         }
 
-        trail_t* train_trail = new_trail(input, reconstructed, guide);
-        train_trail = observe_abstraction(train_trail, abstraction);
-        train_trail = observe_filter(train_trail, filter);
-        train_trail = observe_transform(train_trail, call);
-        float loss = free_trail(guide, train_trail, true);
-        fprintf(
-            out,
-            "%s, %d, %.12e, %d, %d\n",
-            task_def->name,
-            i_train,
-            loss,
-            is_correct,
-            transformed);
-        fflush(out);
+        if (transformed) {
+            trail_t* train_trail = new_trail(input, reconstructed, guide);
+            train_trail = observe_abstraction(train_trail, abstraction);
+            train_trail = observe_filter(train_trail, filter);
+            train_trail = observe_transform(train_trail, call);
+            float loss = free_trail(guide, train_trail, true);
+            fprintf(
+                out,
+                "%s, %d, %.12e, %d, %s, %s, %s\n",
+                task_def->name,
+                i_train,
+                loss,
+                is_correct,
+                abstraction->name,
+                filter->filter->name,
+                call->transform->name);
+            fflush(out);
+        }
 
         free_graph(reconstructed);
 

@@ -239,7 +239,7 @@ class NNetGuide : nn::Module {
               nn::Conv3d(
                   nn::Conv3dOptions(1, config.n_conv_channels, {1, 3, 3}).padding({0, 1, 1})))),
           steps(steps),
-          optimizer(std::vector<optim::OptimizerParamGroup>()),
+          optimizer(std::vector<optim::OptimizerParamGroup>(), optim::AdamOptions().amsgrad(true)),
           minibatch_size(0),
           loss(torch::zeros({1}, TensorOptions().requires_grad(true)).cuda()) {
         int index = 0;

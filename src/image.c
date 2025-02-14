@@ -311,23 +311,23 @@ graph_t* undo_abstraction(const graph_t* in) {
 abstraction_t abstractions[] = {
     {
         .func = get_connected_components_graph_background_removed,
-        .name = "connected, background removed",
+        .name = "connected_background_removed",
     },
     {
         .func = get_connected_components_graph_background_corners_removed,
-        .name = "connected, background corners removed",
+        .name = "connected_background_corners_removed",
     },
     {
         .func = get_connected_components_graph_background_edges_removed,
-        .name = "connected, background edges removed",
+        .name = "connected_background_edges_removed",
     },
     {
         .func = get_connected_components_graph,
-        .name = "connected components",
+        .name = "connected_components",
     },
     {
         .func = get_no_abstraction_graph,
-        .name = "no abstraction",
+        .name = "no_abstraction",
     },
     {
         .func = NULL,
