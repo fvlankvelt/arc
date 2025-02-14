@@ -127,20 +127,25 @@ struct NNetImageStepImpl : nn::Module {
         // compute the max value per (channel, x, y) over all colors
         // add affine transform back from the original
         auto avg_input_color = conv_color->forward(max_pool3d(input_state, {10, 1, 1}));
-        input_state = input_state +
-               avg_input_color.expand({config.n_conv_channels, 10, input_height, input_width});
+        input_state =
+            input_state +
+            avg_input_color.expand({config.n_conv_channels, 10, input_height, input_width});
 
         // compute max value per (channel, color, y) over width of image
         // add affine transform back to the original
-        auto project_horizontal = conv_horizontal->forward(max_pool3d(input_state, {1, 1, input_width}));
-        input_state = input_state +
-                project_horizontal.expand({config.n_conv_channels, 10, input_height, input_width});
+        auto project_horizontal =
+            conv_horizontal->forward(max_pool3d(input_state, {1, 1, input_width}));
+        input_state =
+            input_state +
+            project_horizontal.expand({config.n_conv_channels, 10, input_height, input_width});
 
         // compute max value per (channel, color, x) over height of image
         // add affine transform back to the original
-        auto project_vertical = conv_vertical->forward(max_pool3d(input_state, {1, input_height, 1}));
-        input_state = input_state +
-                project_vertical.expand({config.n_conv_channels, 10, input_height, input_width});
+        auto project_vertical =
+            conv_vertical->forward(max_pool3d(input_state, {1, input_height, 1}));
+        input_state =
+            input_state +
+            project_vertical.expand({config.n_conv_channels, 10, input_height, input_width});
 
         return input_state;
     }
@@ -234,7 +239,9 @@ class NNetGuide : nn::Module {
               nn::Conv3d(
                   nn::Conv3dOptions(1, config.n_conv_channels, {1, 3, 3}).padding({0, 1, 1})))),
           steps(steps),
-          optimizer(std::vector<optim::OptimizerParamGroup>()) {
+          optimizer(std::vector<optim::OptimizerParamGroup>()),
+          minibatch_size(0),
+          loss(torch::zeros({1}, TensorOptions().requires_grad(true)).cuda()) {
         int index = 0;
         for (auto& step : steps) {
             std::string name = "choice_" + std::to_string(index++);
@@ -255,9 +262,17 @@ class NNetGuide : nn::Module {
     }
 
    private:
-    void step() {
-        optimizer.step();
-        optimizer.zero_grad(true);
+    void train(Tensor sample_loss) {
+        loss = loss + sample_loss;
+        minibatch_size += 1;
+        if (minibatch_size == 10) {
+            optimizer.zero_grad(true);
+            loss.backward();
+            optimizer.step();
+
+            minibatch_size = 0;
+            loss = torch::zeros({1}, TensorOptions().requires_grad(true)).cuda();
+        }
     }
 
     NNetConfig config;
@@ -266,6 +281,10 @@ class NNetGuide : nn::Module {
     nn::Conv3d init_output;
     vector<NNetModule> steps;
     optim::Adam optimizer;
+
+    // dynamically built up mini-batch
+    int minibatch_size;
+    Tensor loss;
 };
 
 class NNetTrail {
@@ -292,8 +311,7 @@ class NNetTrail {
     float train() {
         double loss_value = state.loss.item().toDouble();
         // cout << "loss: " << loss_value[0] << endl;
-        state.loss.backward();
-        guide->step();
+        guide->train(state.loss);
         return loss_value;
     }
 
