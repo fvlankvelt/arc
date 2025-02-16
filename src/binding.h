@@ -41,6 +41,6 @@ binding_call_t* sample_binding(
 
 // only to be used in pure training (i.e. not sampling)
 // when binding is skipped, use NULL for the call
-trail_t* observe_binding(trail_t* trail, binding_call_t* call);
+trail_t* observe_binding(trail_t* trail, const binding_call_t* call);
 
 #endif  // __BINDING_H__

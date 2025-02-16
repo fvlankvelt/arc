@@ -116,7 +116,7 @@ void init_transform(guide_builder_t* guide);
 transform_call_t* sample_transform(
     task_t* task, const graph_t* graph, filter_call_t* filter, trail_t** p_trail);
 
-trail_t* observe_transform(trail_t* trail, transform_call_t* call);
+trail_t* observe_transform(trail_t* trail, const transform_call_t* call);
 
 
 #endif // __TRANSFORM_H__

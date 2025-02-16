@@ -44,6 +44,6 @@ void init_filter(guide_builder_t* guide);
 
 filter_call_t* sample_filter(task_t* task, const graph_t* graph, trail_t** p_trail);
 
-trail_t * observe_filter(trail_t* trail, filter_call_t* call);
+trail_t * observe_filter(trail_t* trail, const filter_call_t* call);
 
 #endif  // __FILTER_H__

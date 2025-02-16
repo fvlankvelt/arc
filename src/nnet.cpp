@@ -265,7 +265,7 @@ class NNetGuide : nn::Module {
     void train(Tensor sample_loss) {
         loss = loss + sample_loss;
         minibatch_size += 1;
-        if (minibatch_size == 10) {
+        if (minibatch_size == 1) {
             optimizer.zero_grad(true);
             loss.backward();
             optimizer.step();
@@ -353,7 +353,7 @@ extern "C" {
 
 guide_net_builder_t create_network() {
     NNetBuilder* builder = new NNetBuilder();
-    builder->n_conv_channels(256).projected_width(128);
+    builder->n_conv_channels(128).projected_width(64);
     return builder;
 }
 

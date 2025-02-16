@@ -326,7 +326,8 @@ void init_transform(guide_builder_t* builder) {
     for (color_t color = 0; color < 10; color++) {
         colors[transform_argument_values.n_color++] = color;
     }
-    add_binding(builder, "transform:color");
+    add_choice(builder, transform_argument_values.n_color, "transform:color");
+    add_binding(builder, "transform:bind_color");
 
     transform_argument_values.n_direction = DOWN_RIGHT + 2;
     direction_t* directions = transform_argument_values.direction;
@@ -334,7 +335,8 @@ void init_transform(guide_builder_t* builder) {
     for (direction_t dir = UP; dir <= DOWN_RIGHT; dir++) {
         directions[dir + 1] = dir;
     }
-    add_binding(builder, "transform:direction");
+    add_choice(builder, transform_argument_values.n_direction, "transform:direction");
+    add_binding(builder, "transform:bind_direction");
 
     transform_argument_values.n_overlap = 2;
     bool* overlap = transform_argument_values.overlap;
@@ -356,6 +358,7 @@ transform_call_t* sample_transform(
 
     const categorical_t* color_dist = next_choice(trail);
     int i_color = choose(color_dist);
+    trail = observe_choice(trail, i_color);
     if (i_color == 0) {
         binding_call_t* binding = sample_binding(task, graph, filter, &trail);
         if (!binding) {
@@ -369,6 +372,7 @@ transform_call_t* sample_transform(
 
     const categorical_t* direction_dist = next_choice(trail);
     int i_direction = choose(direction_dist);
+    trail = observe_choice(trail, i_direction);
     if (i_direction == 0) {
         binding_call_t* binding = sample_binding(task, graph, filter, &trail);
         if (!binding) {
@@ -397,10 +401,53 @@ fail:
     return NULL;
 }
 
-trail_t* observe_transform(trail_t* trail, __attribute__((unused)) transform_call_t* call) {
-    trail = observe_choice(trail, -1);
-    trail = observe_binding(trail, NULL);
-    trail = observe_binding(trail, NULL);
-    trail = observe_choice(trail, -1);
+trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
+    const categorical_t* func_dist = next_choice(trail);
+    transform_func_t* func;
+    for (int i_func = 0; &transformations[i_func]; i_func++) {
+        func = &transformations[i_func];
+        if (call->transform == func) {
+            trail = observe_choice(trail, i_func);
+            break;
+        }
+    }
+
+    const categorical_t* color_dist = next_choice(trail);
+    if (call->dynamic.color) {
+        trail = observe_choice(trail, 0);
+        trail = observe_binding(trail, call->dynamic.color);
+    } else {
+        for (int i_color = 1; i_color < transform_argument_values.n_color; i_color++) {
+            if (call->arguments.color == transform_argument_values.color[i_color]) {
+                trail = observe_choice(trail, i_color);
+                break;
+            }
+        }
+        trail = observe_binding(trail, NULL);
+    }
+
+    const categorical_t* direction_dist = next_choice(trail);
+    if (call->dynamic.direction) {
+        trail = observe_choice(trail, 0);
+        trail = observe_binding(trail, call->dynamic.direction);
+    } else {
+        for (int i_direction = 1; i_direction < transform_argument_values.n_direction;
+             i_direction++) {
+            if (call->arguments.direction == transform_argument_values.direction[i_direction]) {
+                trail = observe_choice(trail, i_direction);
+                break;
+            }
+        }
+        trail = observe_binding(trail, NULL);
+    }
+
+    const categorical_t* overlap_dist = next_choice(trail);
+    for (int i_overlap = 0; i_overlap < transform_argument_values.n_overlap; i_overlap++) {
+        if (call->arguments.overlap == transform_argument_values.overlap[i_overlap]) {
+            trail = observe_choice(trail, i_overlap);
+            break;
+        }
+    }
+
     return trail;
 }
