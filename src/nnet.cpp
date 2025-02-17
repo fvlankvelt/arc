@@ -69,19 +69,35 @@ struct NNetState {
 struct NNetImageStepImpl : nn::Module {
     NNetImageStepImpl(const NNetConfig& config)
         : config(config),
+          batchnorm(register_module(
+              "batchnorm",
+              nn::BatchNorm3d(
+                  nn::BatchNormOptions(config.n_conv_channels).affine(false).momentum(0.99)))),
           conv(register_module(
               "conv",
               nn::Conv3d(
                   nn::Conv3dOptions(config.n_conv_channels, config.n_conv_channels, {1, 3, 3})
                       .padding({0, 1, 1})))),
+          batchnorm_color(register_module(
+              "batchnorm_color",
+              nn::BatchNorm3d(
+                  nn::BatchNormOptions(config.n_conv_channels).affine(false).momentum(0.99)))),
           conv_color(register_module(
               "conv_color",
               nn::Conv3d(nn::Conv3dOptions(
                   config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
+          batchnorm_horizontal(register_module(
+              "batchnorm_horizontal",
+              nn::BatchNorm3d(
+                  nn::BatchNormOptions(config.n_conv_channels).affine(false).momentum(0.99)))),
           conv_horizontal(register_module(
               "conv_horizontal",
               nn::Conv3d(nn::Conv3dOptions(
                   config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
+          batchnorm_vertical(register_module(
+              "batchnorm_vertical",
+              nn::BatchNorm3d(
+                  nn::BatchNormOptions(config.n_conv_channels).affine(false).momentum(0.99)))),
           conv_vertical(register_module(
               "conv_vertical",
               nn::Conv3d(nn::Conv3dOptions(
@@ -93,56 +109,60 @@ struct NNetImageStepImpl : nn::Module {
 
     Tensor forward(Tensor& input) {
         auto input_sizes = input.sizes();
-        int input_height = input_sizes.at(2);
-        int input_width = input_sizes.at(3);
+        int input_height = input_sizes.at(3);
+        int input_width = input_sizes.at(4);
 
-        Tensor input_state = torch::relu(conv->forward(input));
+        Tensor input_state = conv->forward(torch::relu(batchnorm->forward(input)));
 
         // compute the max value per (channel, x, y) over all colors
         // add affine transform back from the original
-        auto avg_input_color =
-            torch::relu(conv_color->forward(max_pool3d(input_state, {10, 1, 1})));
-        input_state =
-            input_state +
-            avg_input_color.expand({config.n_conv_channels, 10, input_height, input_width});
+        auto project_color =
+            conv_color
+                ->forward(
+                    torch::relu(batchnorm_color->forward(max_pool3d(input_state, {10, 1, 1}))))
+                .expand({1, config.n_conv_channels, 10, input_height, input_width});
 
         // compute max value per (channel, color, y) over width of image
         // add affine transform back to the original
         auto project_horizontal =
-            torch::relu(conv_horizontal->forward(max_pool3d(input_state, {1, 1, input_width})));
-        input_state =
-            input_state +
-            project_horizontal.expand({config.n_conv_channels, 10, input_height, input_width});
+            conv_horizontal
+                ->forward(torch::relu(batchnorm_horizontal->forward(
+                    max_pool3d(input_state, {1, 1, input_width}))))
+                .expand({1, config.n_conv_channels, 10, input_height, input_width});
 
         // compute max value per (channel, color, x) over height of image
         // add affine transform back to the original
         auto project_vertical =
-            torch::relu(conv_vertical->forward(max_pool3d(input_state, {1, input_height, 1})));
-        input_state =
-            input_state +
-            project_vertical.expand({config.n_conv_channels, 10, input_height, input_width});
+            conv_vertical
+                ->forward(torch::relu(
+                    batchnorm_vertical->forward(max_pool3d(input_state, {1, input_height, 1}))))
+                .expand({1, config.n_conv_channels, 10, input_height, input_width});
 
-        return input_state;
+        return input_state + project_color + project_horizontal + project_vertical;
     }
 
     Tensor merge(const Tensor& input, const Tensor& peer) {
         auto peer_sizes = peer.sizes();
-        int peer_height = peer_sizes.at(2);
-        int peer_width = peer_sizes.at(3);
-        auto channels =
-            torch::relu(conv_peer->forward(max_pool3d(peer, {10, peer_height, peer_width})));
+        int peer_height = peer_sizes.at(3);
+        int peer_width = peer_sizes.at(4);
+        auto channels = conv_peer->forward(torch::relu(
+            max_pool3d(peer, {10, peer_height, peer_width})));
 
         auto input_sizes = input.sizes();
-        int input_height = input_sizes.at(2);
-        int input_width = input_sizes.at(3);
-        return input + channels.expand({config.n_conv_channels, 10, input_height, input_width});
+        int input_height = input_sizes.at(3);
+        int input_width = input_sizes.at(4);
+        return input + channels.expand({1, config.n_conv_channels, 10, input_height, input_width});
     }
 
    private:
     NNetConfig config;
+    nn::BatchNorm3d batchnorm;
     nn::Conv3d conv;
+    nn::BatchNorm3d batchnorm_color;
     nn::Conv3d conv_color;
+    nn::BatchNorm3d batchnorm_horizontal;
     nn::Conv3d conv_horizontal;
+    nn::BatchNorm3d batchnorm_vertical;
     nn::Conv3d conv_vertical;
     nn::Conv3d conv_peer;
 };
@@ -166,15 +186,15 @@ struct NNetModuleImpl : nn::Module {
     NNetState forward(NNetState& state) {
         Tensor input_state = input_step->forward(state.input_image);
         auto input_sizes = input_state.sizes();
-        int input_height = input_sizes.at(2);
-        int input_width = input_sizes.at(3);
+        int input_height = input_sizes.at(3);
+        int input_width = input_sizes.at(4);
         auto max_input =
             max_pool3d(input_state, {10, input_height, input_width}).reshape({config.k / 2});
 
         Tensor output_state = output_step->forward(state.output_image);
         auto output_sizes = output_state.sizes();
-        int output_height = output_sizes.at(2);
-        int output_width = output_sizes.at(3);
+        int output_height = output_sizes.at(3);
+        int output_width = output_sizes.at(4);
         auto max_output =
             max_pool3d(output_state, {10, output_height, output_width}).reshape({config.k / 2});
         auto query = torch::cat({max_input, max_output});
@@ -434,12 +454,12 @@ trail_net_t create_network_trail(
 
     Tensor input_tensor = torch::from_blob(
         input_data,
-        {1, 10, input_height + 2, input_width + 2},
+        {1, 1, 10, input_height + 2, input_width + 2},
         [&](void* data) { free(data); },
         TensorOptions().dtype(kFloat));
     Tensor output_tensor = torch::from_blob(
         output_data,
-        {1, 10, output_height + 2, output_width + 2},
+        {1, 1, 10, output_height + 2, output_width + 2},
         [&](void* data) { free(data); },
         TensorOptions().dtype(kFloat));
     return new NNetTrail(guide, input_tensor, output_tensor);
