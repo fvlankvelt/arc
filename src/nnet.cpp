@@ -1,8 +1,8 @@
+#include "nnet.h"
+
 #include <torch/torch.h>
 
 #include <iostream>
-
-#include "nnet.h"
 
 using namespace torch;
 using namespace std;
@@ -85,6 +85,10 @@ struct NNetImageStepImpl : nn::Module {
           conv_vertical(register_module(
               "conv_vertical",
               nn::Conv3d(nn::Conv3dOptions(
+                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
+          conv_peer(register_module(
+              "conv_peer",
+              nn::Conv3d(nn::Conv3dOptions(
                   config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))) {}
 
     Tensor forward(Tensor& input) {
@@ -96,7 +100,8 @@ struct NNetImageStepImpl : nn::Module {
 
         // compute the max value per (channel, x, y) over all colors
         // add affine transform back from the original
-        auto avg_input_color = conv_color->forward(max_pool3d(input_state, {10, 1, 1}));
+        auto avg_input_color =
+            torch::relu(conv_color->forward(max_pool3d(input_state, {10, 1, 1})));
         input_state =
             input_state +
             avg_input_color.expand({config.n_conv_channels, 10, input_height, input_width});
@@ -104,7 +109,7 @@ struct NNetImageStepImpl : nn::Module {
         // compute max value per (channel, color, y) over width of image
         // add affine transform back to the original
         auto project_horizontal =
-            conv_horizontal->forward(max_pool3d(input_state, {1, 1, input_width}));
+            torch::relu(conv_horizontal->forward(max_pool3d(input_state, {1, 1, input_width})));
         input_state =
             input_state +
             project_horizontal.expand({config.n_conv_channels, 10, input_height, input_width});
@@ -112,12 +117,25 @@ struct NNetImageStepImpl : nn::Module {
         // compute max value per (channel, color, x) over height of image
         // add affine transform back to the original
         auto project_vertical =
-            conv_vertical->forward(max_pool3d(input_state, {1, input_height, 1}));
+            torch::relu(conv_vertical->forward(max_pool3d(input_state, {1, input_height, 1})));
         input_state =
             input_state +
             project_vertical.expand({config.n_conv_channels, 10, input_height, input_width});
 
         return input_state;
+    }
+
+    Tensor merge(const Tensor& input, const Tensor& peer) {
+        auto peer_sizes = peer.sizes();
+        int peer_height = peer_sizes.at(2);
+        int peer_width = peer_sizes.at(3);
+        auto channels =
+            torch::relu(conv_peer->forward(max_pool3d(peer, {10, peer_height, peer_width})));
+
+        auto input_sizes = input.sizes();
+        int input_height = input_sizes.at(2);
+        int input_width = input_sizes.at(3);
+        return input + channels.expand({config.n_conv_channels, 10, input_height, input_width});
     }
 
    private:
@@ -126,6 +144,7 @@ struct NNetImageStepImpl : nn::Module {
     nn::Conv3d conv_color;
     nn::Conv3d conv_horizontal;
     nn::Conv3d conv_vertical;
+    nn::Conv3d conv_peer;
 };
 
 TORCH_MODULE(NNetImageStep);
@@ -222,8 +241,10 @@ class NNetGuide : nn::Module {
               "init_output",
               nn::Conv3d(
                   nn::Conv3dOptions(1, config.n_conv_channels, {1, 3, 3}).padding({0, 1, 1})))),
-          input_step(register_module("conv_input", NNetImageStep(config))),
-          output_step(register_module("conv_output", NNetImageStep(config))),
+          input_step1(register_module("input_step1", NNetImageStep(config))),
+          output_step1(register_module("output_step1", NNetImageStep(config))),
+          input_step2(register_module("input_step2", NNetImageStep(config))),
+          output_step2(register_module("output_step2", NNetImageStep(config))),
           steps(steps),
           optimizer(
               std::vector<optim::OptimizerParamGroup>(), optim::AdamOptions().amsgrad(true)),
@@ -239,11 +260,19 @@ class NNetGuide : nn::Module {
     }
 
     NNetState new_state(const Tensor& input, const Tensor& output) {
-        Tensor prepared_input = init_input->forward(input.cuda());
-        Tensor prepared_output = init_output->forward(output.cuda());
+        Tensor tmp_input = init_input->forward(input.cuda());
+        Tensor tmp_output = init_output->forward(output.cuda());
+        tmp_input = input_step1->forward(tmp_input);
+        tmp_output = output_step1->forward(tmp_output);
+        Tensor processed_input = input_step1->merge(tmp_input, tmp_output);
+        Tensor processed_output = output_step1->merge(tmp_output, tmp_input);
+        tmp_input = input_step2->forward(processed_input);
+        tmp_output = output_step2->forward(processed_output);
+        processed_input = input_step2->merge(tmp_input, tmp_output);
+        processed_output = output_step2->merge(tmp_output, tmp_input);
         return {
-            input_step->forward(prepared_input),
-            output_step->forward(prepared_output),
+            processed_input,
+            processed_output,
             torch::zeros({1, config.k}).cuda(),
             torch::zeros({1, config.v}).cuda(),
             torch::zeros({0}).cuda(),
@@ -269,8 +298,10 @@ class NNetGuide : nn::Module {
     // initial transformation from image to the internal (variable image) dimensions
     nn::Conv3d init_input;
     nn::Conv3d init_output;
-    NNetImageStep input_step;
-    NNetImageStep output_step;
+    NNetImageStep input_step1;
+    NNetImageStep output_step1;
+    NNetImageStep input_step2;
+    NNetImageStep output_step2;
 
     vector<NNetModule> steps;
     optim::Adam optimizer;
