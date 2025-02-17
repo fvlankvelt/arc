@@ -1,8 +1,8 @@
-#include "nnet.h"
-
 #include <torch/torch.h>
 
 #include <iostream>
+
+#include "nnet.h"
 
 using namespace torch;
 using namespace std;
@@ -36,58 +36,28 @@ using namespace std;
  * are also symmetries, they should be taken care of as this reduces parameter count
  * significantly.
  *
- * Since a sequence of random variables must be produced, we need to find a way to fold choices
- * that were made (observations) back into the network.  This is like the decoder part of an
- * auto-encoder. Maybe easiest is to keep this restricted to the scale-free part of the network.
+ * The approach to dealing with correlations between samples (variables or other choices when
+ * synthesizing the program) is to use attention.
  *
- *  (In, Out)                                0 vector
- *      v                                       |
- * (conv|pool)+                                 |
- *      v                                       v
- *     1 st    >   max-pool   >  dense+  >  1st internal  >  dense+  >  soft-max
- *      |                                       |
- *      v                                       v
- * (conv|pool)+                                add        <  dense+  <   choice
- *      |                                       |
- *      v                                       v
- *     2 nd    >   max-pool   >  dense+  >  2nd internal  >  dense+  >  soft-max
- *      |
- *     ...
- *
- * For the (conv|pool) layers to retain permutation invariance, they should either work
- * per-color or aggregate over all layers.  With a commutative aggregation, permutation
- * invariance is retained.
- *
- * Convolutional kernels that transform according to the dihedral group:
- *
- * The invariant kernel (3 degrees of freedom, 1 output channel):
- *     1  2  1
- *     2  3  2
- *     1  2  1
- *
- * The side kernel (1 degree of freedom, 4 output channels):
- *     -  1  -     -  -  -     -  -  -     -  -  -
- *     -  -  -     1  -  -     -  -  -     -  -  1
- *     -  -  -     -  -  -     -  1  -     -  -  -
- *
- * The corner kernel (1 degree of freedom, 4 output channels):
- *     -  -  1     1  -  -     -  -  -     -  -  -
- *     -  -  -     -  -  -     -  -  -     -  -  -
- *     -  -  -     -  -  -     1  -  -     -  -  1
- *
+ * The (input,output) pair is encoded for each choice into a Query vector (length k).
+ * Each preceding choice is encoded into a Key (length k) and a Value vector (length v).
+ * The attention matmul/softmax/matmul mechanism creates a vector (length v) that is then
+ * transformed into a distribution.
  */
 
 class NNetTrail;
 
 struct NNetConfig {
     int n_conv_channels;
-    int projected_width;
+    int k;
+    int v;
 };
 
 struct NNetState {
-    Tensor input_state;
-    Tensor output_state;
-    Tensor projected_state;
+    Tensor input_image;
+    Tensor output_image;
+    Tensor keys;
+    Tensor values;
     Tensor dist_state;
     Tensor loss;
 };
@@ -164,62 +134,76 @@ struct NNetModuleImpl : nn::Module {
     NNetModuleImpl(const NNetConfig& config, int n_choices, const std::string& name)
         : config(config),
           name(name),
-          input_step(register_module("conv_input", NNetImageStep(config))),
-          output_step(register_module("conv_output", NNetImageStep(config))),
-          project_input(register_module(
-              "project_input", nn::Linear(config.n_conv_channels, config.projected_width / 2))),
-          project_output(register_module(
-              "project_output",
-              nn::Linear(config.n_conv_channels, config.projected_width / 2))),
-          decode(register_module("decode", nn::Linear(config.projected_width, n_choices))),
-          encode(register_module("encode", nn::Linear(n_choices, config.projected_width))) {}
+          input_step(register_module(
+              "conv_input",
+              nn::Conv3d(nn::Conv3dOptions(config.n_conv_channels, config.k / 2, {1, 3, 3})))),
+          output_step(register_module(
+              "conv_output",
+              nn::Conv3d(nn::Conv3dOptions(config.n_conv_channels, config.k / 2, {1, 3, 3})))),
+          decode(register_module("decode", nn::Linear(config.v, n_choices))),
+          encode_key(register_module("encode_key", nn::Linear(n_choices, config.k))),
+          encode_value(register_module("encode_value", nn::Linear(n_choices, config.v))) {}
 
     NNetState forward(NNetState& state) {
-        Tensor input_state = input_step->forward(state.input_state);
+        Tensor input_state = input_step->forward(state.input_image);
         auto input_sizes = input_state.sizes();
         int input_height = input_sizes.at(2);
         int input_width = input_sizes.at(3);
-        auto max_input = max_pool3d(input_state, {10, input_height, input_width})
-                             .reshape({config.n_conv_channels});
-        // cout << "INPUT SIZES: " << max_input.sizes() << endl;
-        auto projected_input = torch::relu(project_input->forward(max_input));
+        auto max_input =
+            max_pool3d(input_state, {10, input_height, input_width}).reshape({config.k / 2});
 
-        Tensor output_state = output_step->forward(state.output_state);
+        Tensor output_state = output_step->forward(state.output_image);
         auto output_sizes = output_state.sizes();
         int output_height = output_sizes.at(2);
         int output_width = output_sizes.at(3);
-        auto max_output = max_pool3d(output_state, {10, output_height, output_width})
-                              .reshape({config.n_conv_channels});
-        // cout << "OUTPUT SIZES: " << max_output.sizes() << endl;
-        auto projected_output = torch::relu(project_output->forward(max_output));
+        auto max_output =
+            max_pool3d(output_state, {10, output_height, output_width}).reshape({config.k / 2});
+        auto query = torch::cat({max_input, max_output});
 
-        auto projected = torch::cat({projected_input, projected_output});
-        // cout << "PROJECTED SIZES: " << projected.sizes() << endl;
-        Tensor projected_state = state.projected_state + projected;
-        Tensor dist_state = decode->forward(projected_state);
+        // compute weight of each preceding choice, add their corresponding values
+        auto weights = torch::mv(state.keys, query).softmax(0);
+        auto value = torch::mv(state.values.t(), weights);
 
-        return {input_state, output_state, projected_state, dist_state, state.loss};
+        Tensor dist_state = decode->forward(value);
+
+        return {
+            state.input_image,
+            state.output_image,
+            state.keys,
+            state.values,
+            dist_state,
+            state.loss,
+        };
     }
 
     NNetState observe(NNetState& state, int choice) {
         Tensor target = torch::zeros(state.dist_state.sizes());
         target[choice] = 1.0;
         Tensor cuda_target = target.cuda();
-        Tensor projected_state = state.projected_state + encode->forward(cuda_target);
         // cout << "adding loss " << endl;
         Tensor loss = state.loss +
                       cross_entropy_loss(state.dist_state, cuda_target).set_requires_grad(true);
-        return {state.input_state, state.output_state, projected_state, state.dist_state, loss};
+
+        Tensor key = encode_key->forward(cuda_target).unsqueeze(0);
+        Tensor value = encode_value->forward(cuda_target).unsqueeze(0);
+
+        return {
+            state.input_image,
+            state.output_image,
+            torch::cat({state.keys, key}),
+            torch::cat({state.values, value}),
+            state.dist_state,
+            loss,
+        };
     }
 
     NNetConfig config;
     std::string name;
-    NNetImageStep input_step;
-    NNetImageStep output_step;
-    nn::Linear project_input;
-    nn::Linear project_output;
+    nn::Conv3d input_step;
+    nn::Conv3d output_step;
     nn::Sequential decode;
-    nn::Sequential encode;
+    nn::Sequential encode_key;
+    nn::Sequential encode_value;
 };
 
 TORCH_MODULE(NNetModule);
@@ -238,8 +222,11 @@ class NNetGuide : nn::Module {
               "init_output",
               nn::Conv3d(
                   nn::Conv3dOptions(1, config.n_conv_channels, {1, 3, 3}).padding({0, 1, 1})))),
+          input_step(register_module("conv_input", NNetImageStep(config))),
+          output_step(register_module("conv_output", NNetImageStep(config))),
           steps(steps),
-          optimizer(std::vector<optim::OptimizerParamGroup>(), optim::AdamOptions().amsgrad(true)),
+          optimizer(
+              std::vector<optim::OptimizerParamGroup>(), optim::AdamOptions().amsgrad(true)),
           minibatch_size(0),
           loss(torch::zeros({1}, TensorOptions().requires_grad(true)).cuda()) {
         int index = 0;
@@ -252,10 +239,13 @@ class NNetGuide : nn::Module {
     }
 
     NNetState new_state(const Tensor& input, const Tensor& output) {
+        Tensor prepared_input = init_input->forward(input.cuda());
+        Tensor prepared_output = init_output->forward(output.cuda());
         return {
-            init_input->forward(input.cuda()),
-            init_output->forward(output.cuda()),
-            torch::zeros({config.projected_width}).cuda(),
+            input_step->forward(prepared_input),
+            output_step->forward(prepared_output),
+            torch::zeros({1, config.k}).cuda(),
+            torch::zeros({1, config.v}).cuda(),
             torch::zeros({0}).cuda(),
             torch::zeros({1}, TensorOptions().requires_grad(true)).cuda(),
         };
@@ -265,7 +255,7 @@ class NNetGuide : nn::Module {
     void train(Tensor sample_loss) {
         loss = loss + sample_loss;
         minibatch_size += 1;
-        if (minibatch_size == 1) {
+        if (minibatch_size == 10) {
             optimizer.zero_grad(true);
             loss.backward();
             optimizer.step();
@@ -279,6 +269,9 @@ class NNetGuide : nn::Module {
     // initial transformation from image to the internal (variable image) dimensions
     nn::Conv3d init_input;
     nn::Conv3d init_output;
+    NNetImageStep input_step;
+    NNetImageStep output_step;
+
     vector<NNetModule> steps;
     optim::Adam optimizer;
 
@@ -325,13 +318,18 @@ class NNetBuilder {
    public:
     NNetBuilder() : steps() {}
 
-    NNetBuilder& n_conv_channels(int n_channels) {
-        config.n_conv_channels = n_channels;
+    NNetBuilder& n_conv_channels(int n_conv_channels) {
+        config.n_conv_channels = n_conv_channels;
         return *this;
     }
 
-    NNetBuilder& projected_width(int width) {
-        config.projected_width = width;
+    NNetBuilder& k(int k) {
+        config.k = k;
+        return *this;
+    }
+
+    NNetBuilder& v(int v) {
+        config.v = v;
         return *this;
     }
 
@@ -353,7 +351,7 @@ extern "C" {
 
 guide_net_builder_t create_network() {
     NNetBuilder* builder = new NNetBuilder();
-    builder->n_conv_channels(128).projected_width(64);
+    builder->k(128).v(64).n_conv_channels(256);
     return builder;
 }
 
