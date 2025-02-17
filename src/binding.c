@@ -260,10 +260,10 @@ binding_call_t* sample_binding(
 }
 
 trail_t* observe_binding(trail_t* trail, const binding_call_t* call) {
-    const categorical_t* func_dist = next_choice(trail);
+    /* const categorical_t* func_dist = */ next_choice(trail);
     binding_func_t* func = NULL;
     if (call) {
-        for (int i_func = 0; &binding_funcs[i_func]; i_func++) {
+        for (int i_func = 0; binding_funcs[i_func].func; i_func++) {
             func = &binding_funcs[i_func];
             if (call->binding == func) {
                 trail = observe_choice(trail, i_func);
@@ -275,7 +275,7 @@ trail_t* observe_binding(trail_t* trail, const binding_call_t* call) {
         trail = observe_choice(trail, -1);
     }
 
-    const categorical_t* size_dist = next_choice(trail);
+    /* const categorical_t* size_dist = */ next_choice(trail);
     if (func && func->size) {
         for (int i_size = 0; i_size < binding_argument_values.n_size; i_size++) {
             if (call->args.size == binding_argument_values.size[i_size]) {
@@ -287,7 +287,7 @@ trail_t* observe_binding(trail_t* trail, const binding_call_t* call) {
         trail = observe_choice(trail, -1);
     }
 
-    const categorical_t* degree_dist = next_choice(trail);
+    /* const categorical_t* degree_dist = */ next_choice(trail);
     if (func && func->degree) {
         for (int i_degree = 0; i_degree < binding_argument_values.n_degree; i_degree++) {
             if (call->args.degree == binding_argument_values.degree[i_degree]) {
@@ -299,7 +299,7 @@ trail_t* observe_binding(trail_t* trail, const binding_call_t* call) {
         trail = observe_choice(trail, -1);
     }
 
-    const categorical_t* exclude_dist = next_choice(trail);
+    /* const categorical_t* exclude_dist = */ next_choice(trail);
     if (func && func->exclude) {
         for (int i_exclude = 0; i_exclude < binding_argument_values.n_exclude; i_exclude++) {
             if (call->args.exclude == binding_argument_values.exclude[i_exclude]) {
@@ -311,7 +311,7 @@ trail_t* observe_binding(trail_t* trail, const binding_call_t* call) {
         trail = observe_choice(trail, -1);
     }
 
-    const categorical_t* color_dist = next_choice(trail);
+    /* const categorical_t* color_dist = */ next_choice(trail);
     if (func && func->color) {
         for (int i_color = 0; i_color < binding_argument_values.n_color; i_color++) {
             if (call->args.color == binding_argument_values.color[i_color]) {

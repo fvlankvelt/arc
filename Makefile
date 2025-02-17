@@ -58,4 +58,4 @@ $(BINDIR)/arga: $(COBJECTS) $(CXXOBJECTS) obj/main.o | $(BINDIR)
 	$(LINKER) -o $(BINDIR)/arga $(COBJECTS) $(CXXOBJECTS) obj/main.o -lcjson
 
 $(BINDIR)/test: $(TEST_OBJECTS) $(COBJECTS) $(CXXOBJECTS) | $(BINDIR)
-	$(CC) -o $(BINDIR)/test $(TEST_OBJECTS) $(COBJECTS) $(CXXOBJECTS) -lcjson
+	$(LINKER) -o $(BINDIR)/test $(TEST_OBJECTS) $(COBJECTS) $(CXXOBJECTS) -lcjson

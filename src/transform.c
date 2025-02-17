@@ -402,9 +402,9 @@ fail:
 }
 
 trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
-    const categorical_t* func_dist = next_choice(trail);
+    /* const categorical_t* func_dist = */ next_choice(trail);
     transform_func_t* func;
-    for (int i_func = 0; &transformations[i_func]; i_func++) {
+    for (int i_func = 0; transformations[i_func].func; i_func++) {
         func = &transformations[i_func];
         if (call->transform == func) {
             trail = observe_choice(trail, i_func);
@@ -412,7 +412,7 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
         }
     }
 
-    const categorical_t* color_dist = next_choice(trail);
+    /* const categorical_t* color_dist = */ next_choice(trail);
     if (call->dynamic.color) {
         trail = observe_choice(trail, 0);
         trail = observe_binding(trail, call->dynamic.color);
@@ -426,7 +426,7 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
         trail = observe_binding(trail, NULL);
     }
 
-    const categorical_t* direction_dist = next_choice(trail);
+    /* const categorical_t* direction_dist = */ next_choice(trail);
     if (call->dynamic.direction) {
         trail = observe_choice(trail, 0);
         trail = observe_binding(trail, call->dynamic.direction);
@@ -441,7 +441,7 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
         trail = observe_binding(trail, NULL);
     }
 
-    const categorical_t* overlap_dist = next_choice(trail);
+    /* const categorical_t* overlap_dist = */ next_choice(trail);
     for (int i_overlap = 0; i_overlap < transform_argument_values.n_overlap; i_overlap++) {
         if (call->arguments.overlap == transform_argument_values.overlap[i_overlap]) {
             trail = observe_choice(trail, i_overlap);
