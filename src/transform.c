@@ -22,6 +22,15 @@ dcoord_t deltas[] = {
     {1, 1},
 };
 
+int rotations[3][2][2] = {
+    // CLOCK_WISE = 0,
+    {{0, -1}, {1, 0}},
+    // COUNTER_CLOCK_WISE,
+    {{0, 1}, {-1, 0}},
+    // DOUBLE_CLOCK_WISE
+    {{-1, 0}, {0, -1}},
+};
+
 typedef struct _subnode_iter {
     int n_subnodes;
     int i;
@@ -191,6 +200,39 @@ void move_node_max(graph_t* graph, node_t* node, transform_arguments_t* args) {
     }
 }
 
+/**
+ * rotates node around its center point in a given rotational direction
+ */
+void rotate_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
+    int r[2][2] = rotations[args->rotation_dir];
+    int sum_x = 0, sum_y = 0;
+    for (int i = 0; i < node->n_subnodes; i++) {
+        const subnode_t subnode = get_subnode(node, i);
+        sum_x += subnode.coord.pri;
+        sum_y += subnode.coord.sec;
+    }
+    coordinate_t center = {
+        sum_x / node->n_subnodes,
+        sum_y / node->n_subnodes,
+    };
+    for (int i = 0; i < node->n_subnodes; i++) {
+        subnode_t subnode = get_subnode(node, i);
+        coordinate_t d = {
+            subnode.coord.pri - center.pri,
+            subnode.coord.sec - center.sec,
+        };
+        subnode.coord = (coordinate_t) {
+            center.pri + r[0][0] * d.pri + r[0][1] * d.sec,
+            center.sec + r[1][0] * d.pri + r[1][1] * d.sec,
+        };
+        if (check_bounds(graph, subnode.coord)) {
+            set_subnode(node, i, subnode);
+        } else {
+            // ERROR?
+        }
+    }
+}
+
 transform_func_t transformations[] = {
     {
         .func = update_color,
@@ -212,6 +254,11 @@ transform_func_t transformations[] = {
         .func = move_node_max,
         .direction = true,
         .name = "move_node_max",
+    },
+    {
+        .func = rotate_node,
+        .rotation_dir = true,
+        .name = "rotate_node",
     },
     {
         .func = NULL,
@@ -337,7 +384,7 @@ struct {
     // int n_mirror_axis;
     // int n_point;
 
-    // int n_rotation;
+    int n_rotation;
     int n_overlap;
     // int n_mirror_direction;
     // int n_object_id;
@@ -346,7 +393,7 @@ struct {
     color_t color[13];
     direction_t direction[DOWN_RIGHT + 2];
 
-    // rotation_t rotation[3];
+    rotation_t rotation[3];
     bool overlap[3];
     // mirror_t mirror_direction[4];
     // short object_id[MAX_ARGUMENT_VALUES];
@@ -379,6 +426,13 @@ void init_transform(guide_builder_t* builder) {
     }
     add_choice(builder, transform_argument_values.n_direction, "transform:direction");
     add_binding(builder, "transform:bind_direction");
+
+    transform_argument_values.n_rotation = 3;
+    rotation_t* rotation = transform_argument_values.rotation;
+    rotation[0] = CLOCK_WISE;
+    rotation[1] = COUNTER_CLOCK_WISE;
+    rotation[2] = DOUBLE_CLOCK_WISE;
+    add_choice(builder, 3, "transform:rotation");
 
     transform_argument_values.n_overlap = 2;
     bool* overlap = transform_argument_values.overlap;
@@ -425,6 +479,11 @@ transform_call_t* sample_transform(
         trail = observe_binding(trail, NULL);
         call->arguments.direction = transform_argument_values.direction[i_direction];
     }
+
+    const categorical_t* rotation_dist = next_choice(trail);
+    int i_rotation = choose(rotation_dist);
+    trail = observe_choice(trail, i_rotation);
+    call->arguments.rotation_dir = transform_argument_values.rotation[i_rotation];
 
     const categorical_t* overlap_dist = next_choice(trail);
     int i_overlap = choose(overlap_dist);
@@ -481,6 +540,14 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
             }
         }
         trail = observe_binding(trail, NULL);
+    }
+
+    /* const categorical_t* rotation_dist = */ next_choice(trail);
+    for (int i_rotation = 0; i_rotation < transform_argument_values.n_rotation; i_rotation++) {
+        if (call->arguments.rotation_dir == transform_argument_values.rotation[i_rotation]) {
+            trail = observe_choice(trail, i_rotation);
+            break;
+        }
     }
 
     /* const categorical_t* overlap_dist = */ next_choice(trail);

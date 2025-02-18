@@ -274,7 +274,7 @@ class NNetGuide : nn::Module {
           steps(steps),
           optimizer(
               std::vector<optim::OptimizerParamGroup>(), optim::AdamWOptions().amsgrad(true)),
-          scheduler(optimizer, 10000, 0.9),
+          scheduler(optimizer, 1000, 0.9),
           minibatch_size(0),
           loss(torch::zeros({1}, TensorOptions().requires_grad(true)).cuda()) {
         int index = 0;
