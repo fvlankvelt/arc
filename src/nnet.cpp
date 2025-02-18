@@ -116,7 +116,7 @@ struct NNetImageStepImpl : nn::Module {
 
         // compute the max value per (channel, x, y) over all colors
         // add affine transform back from the original
-        auto project_color =
+        auto project_color = input_state +
             conv_color
                 ->forward(
                     torch::relu(batchnorm_color->forward(max_pool3d(input_state, {10, 1, 1}))))
@@ -124,21 +124,21 @@ struct NNetImageStepImpl : nn::Module {
 
         // compute max value per (channel, color, y) over width of image
         // add affine transform back to the original
-        auto project_horizontal =
+        auto project_horizontal = project_color +
             conv_horizontal
                 ->forward(torch::relu(batchnorm_horizontal->forward(
-                    max_pool3d(input_state, {1, 1, input_width}))))
+                    max_pool3d(project_color, {1, 1, input_width}))))
                 .expand({1, config.n_conv_channels, 10, input_height, input_width});
 
         // compute max value per (channel, color, x) over height of image
         // add affine transform back to the original
-        auto project_vertical =
+        auto project_vertical = project_horizontal +
             conv_vertical
                 ->forward(torch::relu(
-                    batchnorm_vertical->forward(max_pool3d(input_state, {1, input_height, 1}))))
+                    batchnorm_vertical->forward(max_pool3d(project_horizontal, {1, input_height, 1}))))
                 .expand({1, config.n_conv_channels, 10, input_height, input_width});
 
-        return input_state + project_color + project_horizontal + project_vertical;
+        return project_vertical;
     }
 
     Tensor merge(const Tensor& input, const Tensor& peer) {
