@@ -8,6 +8,7 @@
 extern void update_color(graph_t* graph, node_t* node, transform_arguments_t* params);
 extern void move_node(graph_t* graph, node_t* node, transform_arguments_t* params);
 extern void extend_node(graph_t* graph, node_t* node, transform_arguments_t* params);
+extern void move_node_max(graph_t* graph, node_t* node, transform_arguments_t* params);
 
 BEGIN_TEST(test_update_color) {
     // clang-format off
@@ -83,8 +84,29 @@ BEGIN_TEST(test_extend_node) {
 }
 END_TEST()
 
+BEGIN_TEST(test_move_node_max) {
+    // clang-format off
+    color_t grid[] = {
+      2, 2, 0,
+      2, 0, 0,
+      2, 0, 2,
+    };
+    // clang-format on
+    graph_t* graph = graph_from_grid(grid, 3, 3);
+    remove_node(graph, get_node(graph, (coordinate_t){1, 2}));
+
+    transform_arguments_t params = {.direction = LEFT};
+    node_t* node = get_node(graph, (coordinate_t){2, 2});
+    move_node_max(graph, node, &params);
+    subnode_t subnode = get_subnode(node, 0);
+    ASSERT(subnode.coord.pri == 1 && subnode.coord.sec == 2, "pixel has not moved");
+    free_graph(graph);
+}
+END_TEST()
+
 DEFINE_SUITE(test_transform, ({
               RUN_TEST(test_update_color);
               RUN_TEST(test_move_node);
               RUN_TEST(test_extend_node);
+              RUN_TEST(test_move_node_max);
           }))

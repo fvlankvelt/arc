@@ -155,6 +155,42 @@ void extend_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
     set_subnodes(graph, node, new_subnodes, n_new_subnodes);
 }
 
+/**
+ * move node in a given direction until it hits another node or the edge of the image
+ */
+void move_node_max(graph_t* graph, node_t* node, transform_arguments_t* args) {
+    dcoord_t delta = deltas[args->direction];
+    subnode_block_t block = {NULL};
+    int n = 0;
+    for (; n < 1000; n++) {
+        bool hit = false;
+        for (int i = 0; !hit && i < node->n_subnodes; i++) {
+            subnode_t subnode = get_subnode(node, i);
+            coordinate_t new_coord = subnode.coord;
+            new_coord.pri += n * delta.dx;
+            new_coord.sec += n * delta.dy;
+            block.subnode[0] = new_coord;
+            if (!check_bounds(graph, new_coord) || !check_collision(graph, node, &block, 1)) {
+                hit = true;
+                break;
+            }
+        }
+        if (hit) {
+            n--;
+            break;
+        }
+    }
+    if (n <= 0) {
+        return;
+    }
+    for (int i = 0; i < node->n_subnodes; i++) {
+        subnode_t subnode = get_subnode(node, i);
+        subnode.coord.pri += n * delta.dx;
+        subnode.coord.sec += n * delta.dy;
+        set_subnode(node, i, subnode);
+    }
+}
+
 transform_func_t transformations[] = {
     {
         .func = update_color,
@@ -173,8 +209,14 @@ transform_func_t transformations[] = {
         .name = "extend_node",
     },
     {
+        .func = move_node_max,
+        .direction = true,
+        .name = "move_node_max",
+    },
+    {
         .func = NULL,
-    }};
+    },
+};
 
 bool get_relative_pos(const node_t* node, const node_t* other, direction_t* direction) {
     for (int i = 0; i < node->n_subnodes; i++) {

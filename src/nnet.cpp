@@ -273,7 +273,8 @@ class NNetGuide : nn::Module {
           prepare2(register_module("prepare2", NNetPrepareModule(config))),
           steps(steps),
           optimizer(
-              std::vector<optim::OptimizerParamGroup>(), optim::AdamOptions().amsgrad(true)),
+              std::vector<optim::OptimizerParamGroup>(),
+              optim::AdamWOptions().amsgrad(true).weight_decay(1e-4)),
           minibatch_size(0),
           loss(torch::zeros({1}, TensorOptions().requires_grad(true)).cuda()) {
         int index = 0;
@@ -335,7 +336,7 @@ class NNetGuide : nn::Module {
     NNetPrepareModule prepare2;
 
     vector<NNetModule> steps;
-    optim::Adam optimizer;
+    optim::AdamW optimizer;
 
     // dynamically built up mini-batch
     int minibatch_size;
