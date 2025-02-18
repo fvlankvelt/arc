@@ -48,6 +48,7 @@ using namespace std;
 class NNetTrail;
 
 struct NNetConfig {
+    int n_prepare;
     int n_conv_channels;
     int k;
     int v;
@@ -269,9 +270,7 @@ class NNetGuide : nn::Module {
               "init_output",
               nn::Conv3d(
                   nn::Conv3dOptions(1, config.n_conv_channels, {1, 3, 3}).padding({0, 1, 1})))),
-          prepare1(register_module("prepare1", NNetPrepareModule(config))),
-          prepare2(register_module("prepare2", NNetPrepareModule(config))),
-          prepare3(register_module("prepare3", NNetPrepareModule(config))),
+          prepare(),
           steps(steps),
           optimizer(
               std::vector<optim::OptimizerParamGroup>(), optim::AdamWOptions().amsgrad(true)),
@@ -283,6 +282,10 @@ class NNetGuide : nn::Module {
             std::string name = "choice_" + std::to_string(index++);
             register_module(name, step);
         }
+        for (index = 0; index < config.n_prepare; index++) {
+            std::string name = "prepare_" + std::to_string(index++);
+            prepare.push_back(register_module(name, NNetPrepareModule(config)));
+        }
         to(kCUDA);
         optimizer.add_param_group(parameters());
     }
@@ -290,20 +293,22 @@ class NNetGuide : nn::Module {
     NNetState new_state(const Tensor& input, const Tensor& output) {
         Tensor tmp_input = init_input->forward(input.cuda());
         Tensor tmp_output = init_output->forward(output.cuda());
-        auto prep1 = prepare1->forward({tmp_input, tmp_output});
-        auto prep2 = prepare2->forward(prep1);
-        auto prepared = prepare3->forward(prep2);
+
+        NNetPrepareState state = {tmp_input, tmp_output};
+        for (auto& prep : prepare) {
+            state = prep->forward(state);
+        }
 
         auto input_sizes = input.sizes();
         int input_height = input_sizes.at(3);
         int input_width = input_sizes.at(4);
-        auto max_input = max_pool3d(prepared.input, {10, input_height, input_width})
+        auto max_input = max_pool3d(state.input, {10, input_height, input_width})
                              .reshape({config.n_conv_channels});
 
         auto output_sizes = output.sizes();
         int output_height = output_sizes.at(3);
         int output_width = output_sizes.at(4);
-        auto max_output = max_pool3d(prepared.output, {10, output_height, output_width})
+        auto max_output = max_pool3d(state.output, {10, output_height, output_width})
                               .reshape({config.n_conv_channels});
         auto observations = torch::cat({max_input, max_output});
 
@@ -335,9 +340,7 @@ class NNetGuide : nn::Module {
     // initial transformation from image to the internal (variable image) dimensions
     nn::Conv3d init_input;
     nn::Conv3d init_output;
-    NNetPrepareModule prepare1;
-    NNetPrepareModule prepare2;
-    NNetPrepareModule prepare3;
+    vector<NNetPrepareModule> prepare;
 
     vector<NNetModule> steps;
     optim::AdamW optimizer;
@@ -386,6 +389,11 @@ class NNetBuilder {
    public:
     NNetBuilder() : steps() {}
 
+    NNetBuilder& n_prepare(int n_prepare) {
+        config.n_prepare = n_prepare;
+        return *this;
+    }
+
     NNetBuilder& n_conv_channels(int n_conv_channels) {
         config.n_conv_channels = n_conv_channels;
         return *this;
@@ -419,7 +427,7 @@ extern "C" {
 
 guide_net_builder_t create_network() {
     NNetBuilder* builder = new NNetBuilder();
-    builder->k(128).v(64).n_conv_channels(256);
+    builder->k(128).v(64).n_conv_channels(256).n_prepare(10);
     return builder;
 }
 
