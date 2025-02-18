@@ -22,13 +22,13 @@ dcoord_t deltas[] = {
     {1, 1},
 };
 
-int rotations[3][2][2] = {
+int rotations[3][4] = {
     // CLOCK_WISE = 0,
-    {{0, -1}, {1, 0}},
+    {0, -1, 1, 0},
     // COUNTER_CLOCK_WISE,
-    {{0, 1}, {-1, 0}},
+    {0, 1, -1, 0},
     // DOUBLE_CLOCK_WISE
-    {{-1, 0}, {0, -1}},
+    {-1, 0, 0, -1},
 };
 
 typedef struct _subnode_iter {
@@ -204,7 +204,7 @@ void move_node_max(graph_t* graph, node_t* node, transform_arguments_t* args) {
  * rotates node around its center point in a given rotational direction
  */
 void rotate_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
-    int r[2][2] = rotations[args->rotation_dir];
+    int* r = rotations[args->rotation_dir];
     int sum_x = 0, sum_y = 0;
     for (int i = 0; i < node->n_subnodes; i++) {
         const subnode_t subnode = get_subnode(node, i);
@@ -221,9 +221,9 @@ void rotate_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
             subnode.coord.pri - center.pri,
             subnode.coord.sec - center.sec,
         };
-        subnode.coord = (coordinate_t) {
-            center.pri + r[0][0] * d.pri + r[0][1] * d.sec,
-            center.sec + r[1][0] * d.pri + r[1][1] * d.sec,
+        subnode.coord = (coordinate_t){
+            center.pri + r[0] * d.pri + r[1] * d.sec,
+            center.sec + r[2] * d.pri + r[3] * d.sec,
         };
         if (check_bounds(graph, subnode.coord)) {
             set_subnode(node, i, subnode);
@@ -255,11 +255,13 @@ transform_func_t transformations[] = {
         .direction = true,
         .name = "move_node_max",
     },
+    /*
     {
         .func = rotate_node,
         .rotation_dir = true,
         .name = "rotate_node",
     },
+    */
     {
         .func = NULL,
     },
@@ -453,42 +455,60 @@ transform_call_t* sample_transform(
     trail = observe_choice(trail, i_func);
 
     const categorical_t* color_dist = next_choice(trail);
-    int i_color = choose(color_dist);
-    trail = observe_choice(trail, i_color);
-    if (i_color == 0) {
-        binding_call_t* binding = sample_binding(task, graph, filter, &trail);
-        if (!binding) {
-            goto fail;
+    if (call->transform->color) {
+        int i_color = choose(color_dist);
+        trail = observe_choice(trail, i_color);
+        if (i_color == 0) {
+            binding_call_t* binding = sample_binding(task, graph, filter, &trail);
+            if (!binding) {
+                goto fail;
+            }
+            call->dynamic.color = binding;
+        } else {
+            trail = observe_binding(trail, NULL);
+            call->arguments.color = transform_argument_values.color[i_color];
         }
-        call->dynamic.color = binding;
     } else {
+        trail = observe_choice(trail, -1);
         trail = observe_binding(trail, NULL);
-        call->arguments.color = transform_argument_values.color[i_color];
     }
 
     const categorical_t* direction_dist = next_choice(trail);
-    int i_direction = choose(direction_dist);
-    trail = observe_choice(trail, i_direction);
-    if (i_direction == 0) {
-        binding_call_t* binding = sample_binding(task, graph, filter, &trail);
-        if (!binding) {
-            goto fail;
+    if (call->transform->direction) {
+        int i_direction = choose(direction_dist);
+        trail = observe_choice(trail, i_direction);
+        if (i_direction == 0) {
+            binding_call_t* binding = sample_binding(task, graph, filter, &trail);
+            if (!binding) {
+                goto fail;
+            }
+            call->dynamic.direction = binding;
+        } else {
+            trail = observe_binding(trail, NULL);
+            call->arguments.direction = transform_argument_values.direction[i_direction];
         }
-        call->dynamic.direction = binding;
     } else {
+        trail = observe_choice(trail, -1);
         trail = observe_binding(trail, NULL);
-        call->arguments.direction = transform_argument_values.direction[i_direction];
     }
 
     const categorical_t* rotation_dist = next_choice(trail);
-    int i_rotation = choose(rotation_dist);
-    trail = observe_choice(trail, i_rotation);
-    call->arguments.rotation_dir = transform_argument_values.rotation[i_rotation];
+    if (call->transform->rotation_dir) {
+        int i_rotation = choose(rotation_dist);
+        trail = observe_choice(trail, i_rotation);
+        call->arguments.rotation_dir = transform_argument_values.rotation[i_rotation];
+    } else {
+        trail = observe_choice(trail, -1);
+    }
 
     const categorical_t* overlap_dist = next_choice(trail);
-    int i_overlap = choose(overlap_dist);
-    trail = observe_choice(trail, i_overlap);
-    call->arguments.overlap = transform_argument_values.overlap[i_overlap];
+    if (call->transform->overlap) {
+        int i_overlap = choose(overlap_dist);
+        trail = observe_choice(trail, i_overlap);
+        call->arguments.overlap = transform_argument_values.overlap[i_overlap];
+    } else {
+        trail = observe_choice(trail, -1);
+    }
 
     *p_trail = trail;
 
@@ -517,7 +537,7 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
     if (call->dynamic.color) {
         trail = observe_choice(trail, 0);
         trail = observe_binding(trail, call->dynamic.color);
-    } else {
+    } else if (call->transform->color) {
         for (int i_color = 1; i_color < transform_argument_values.n_color; i_color++) {
             if (call->arguments.color == transform_argument_values.color[i_color]) {
                 trail = observe_choice(trail, i_color);
@@ -525,13 +545,16 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
             }
         }
         trail = observe_binding(trail, NULL);
+    } else {
+        trail = observe_choice(trail, -1);
+        trail = observe_binding(trail, NULL);
     }
 
     /* const categorical_t* direction_dist = */ next_choice(trail);
     if (call->dynamic.direction) {
         trail = observe_choice(trail, 0);
         trail = observe_binding(trail, call->dynamic.direction);
-    } else {
+    } else if (call->transform->direction) {
         for (int i_direction = 1; i_direction < transform_argument_values.n_direction;
              i_direction++) {
             if (call->arguments.direction == transform_argument_values.direction[i_direction]) {
@@ -540,22 +563,35 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
             }
         }
         trail = observe_binding(trail, NULL);
+    } else {
+        trail = observe_choice(trail, -1);
+        trail = observe_binding(trail, NULL);
     }
 
     /* const categorical_t* rotation_dist = */ next_choice(trail);
-    for (int i_rotation = 0; i_rotation < transform_argument_values.n_rotation; i_rotation++) {
-        if (call->arguments.rotation_dir == transform_argument_values.rotation[i_rotation]) {
-            trail = observe_choice(trail, i_rotation);
-            break;
+    if (call->transform->rotation_dir) {
+        for (int i_rotation = 0; i_rotation < transform_argument_values.n_rotation;
+             i_rotation++) {
+            if (call->arguments.rotation_dir ==
+                transform_argument_values.rotation[i_rotation]) {
+                trail = observe_choice(trail, i_rotation);
+                break;
+            }
         }
+    } else {
+        trail = observe_choice(trail, -1);
     }
 
     /* const categorical_t* overlap_dist = */ next_choice(trail);
-    for (int i_overlap = 0; i_overlap < transform_argument_values.n_overlap; i_overlap++) {
-        if (call->arguments.overlap == transform_argument_values.overlap[i_overlap]) {
-            trail = observe_choice(trail, i_overlap);
-            break;
+    if (call->transform->overlap) {
+        for (int i_overlap = 0; i_overlap < transform_argument_values.n_overlap; i_overlap++) {
+            if (call->arguments.overlap == transform_argument_values.overlap[i_overlap]) {
+                trail = observe_choice(trail, i_overlap);
+                break;
+            }
         }
+    } else {
+        trail = observe_choice(trail, -1);
     }
 
     return trail;
