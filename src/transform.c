@@ -518,6 +518,12 @@ fail:
     while (trail != *p_trail) {
         trail = backtrack(trail);
     }
+    if (call->dynamic.direction) {
+        free_item(task->_mem_binding_calls, call->dynamic.direction);
+    }
+    if (call->dynamic.color) {
+        free_item(task->_mem_binding_calls, call->dynamic.color);
+    }
     free_item(task->_mem_transform_calls, call);
     return NULL;
 }
@@ -595,4 +601,14 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
     }
 
     return trail;
+}
+
+void free_transform(task_t * task, transform_call_t * call) {
+    if (call->dynamic.direction) {
+        free_item(task->_mem_binding_calls, call->dynamic.direction);
+    }
+    if (call->dynamic.color) {
+        free_item(task->_mem_binding_calls, call->dynamic.color);
+    }
+    free_item(task->_mem_transform_calls, call);
 }

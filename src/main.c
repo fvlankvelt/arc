@@ -126,7 +126,7 @@ int main(int argc, char* argv[]) {
         free_graph(reconstructed);
 
     no_reconstruction:
-        free_item(task->_mem_transform_calls, call);
+        free_transform(task, call);
 
     no_transform:
         free_item(task->_mem_filter_calls, filter);

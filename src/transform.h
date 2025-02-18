@@ -118,5 +118,6 @@ transform_call_t* sample_transform(
 
 trail_t* observe_transform(trail_t* trail, const transform_call_t* call);
 
+void free_transform(task_t * task, transform_call_t * call);
 
 #endif // __TRANSFORM_H__
