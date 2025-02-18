@@ -108,19 +108,20 @@ color_t get_color(const graph_t* graph, color_t color) {
 /*
  * update node color to given color
  */
-void update_color(graph_t* graph, node_t* node, transform_arguments_t* args) {
+bool update_color(graph_t* graph, node_t* node, transform_arguments_t* args) {
     color_t color = get_color(graph, args->color);
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t subnode = get_subnode(node, i);
         subnode.color = color;
         set_subnode(node, i, subnode);
     }
+    return true;
 }
 
 /*
  * move node by 1 pixel in a given direction
  */
-void move_node(
+bool move_node(
     __attribute__((unused)) graph_t* graph, node_t* node, transform_arguments_t* args) {
     dcoord_t delta = deltas[args->direction];
     for (int i = 0; i < node->n_subnodes; i++) {
@@ -129,6 +130,7 @@ void move_node(
         subnode.coord.sec += delta.dy;
         set_subnode(node, i, subnode);
     }
+    return true;
 }
 
 /**
@@ -136,7 +138,7 @@ void move_node(
  * if overlap is true, extend node even if it overlaps with another node
  * if overlap is false, stop extending before it overlaps with another node
  */
-void extend_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
+bool extend_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
     dcoord_t delta = deltas[args->direction];
     int max_range = graph->width > graph->height ? graph->width : graph->height;
     subnode_block_t block = {NULL};
@@ -162,12 +164,13 @@ void extend_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
         }
     }
     set_subnodes(graph, node, new_subnodes, n_new_subnodes);
+    return true;
 }
 
 /**
  * move node in a given direction until it hits another node or the edge of the image
  */
-void move_node_max(graph_t* graph, node_t* node, transform_arguments_t* args) {
+bool move_node_max(graph_t* graph, node_t* node, transform_arguments_t* args) {
     dcoord_t delta = deltas[args->direction];
     subnode_block_t block = {NULL};
     int n = 0;
@@ -190,7 +193,7 @@ void move_node_max(graph_t* graph, node_t* node, transform_arguments_t* args) {
         }
     }
     if (n <= 0) {
-        return;
+        return false;
     }
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t subnode = get_subnode(node, i);
@@ -198,12 +201,13 @@ void move_node_max(graph_t* graph, node_t* node, transform_arguments_t* args) {
         subnode.coord.sec += n * delta.dy;
         set_subnode(node, i, subnode);
     }
+    return true;
 }
 
 /**
  * rotates node around its center point in a given rotational direction
  */
-void rotate_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
+bool rotate_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
     int* r = rotations[args->rotation_dir];
     int sum_x = 0, sum_y = 0;
     for (int i = 0; i < node->n_subnodes; i++) {
@@ -229,8 +233,10 @@ void rotate_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
             set_subnode(node, i, subnode);
         } else {
             // ERROR?
+            return false;
         }
     }
+    return true;
 }
 
 transform_func_t transformations[] = {
@@ -255,13 +261,11 @@ transform_func_t transformations[] = {
         .direction = true,
         .name = "move_node_max",
     },
-    /*
     {
         .func = rotate_node,
         .rotation_dir = true,
         .name = "rotate_node",
     },
-    */
     {
         .func = NULL,
     },

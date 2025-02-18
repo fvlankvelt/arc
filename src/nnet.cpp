@@ -416,7 +416,7 @@ extern "C" {
 
 guide_net_builder_t create_network() {
     NNetBuilder* builder = new NNetBuilder();
-    builder->k(128).v(64).n_conv_channels(512);
+    builder->k(128).v(64).n_conv_channels(384);
     return builder;
 }
 

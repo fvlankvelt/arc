@@ -87,7 +87,7 @@ bool apply_binding(
     transform_arguments_t* args);
 
 typedef struct _transform_func {
-    void (*func)(graph_t*, node_t*, transform_arguments_t*);
+    bool (*func)(graph_t*, node_t*, transform_arguments_t*);
     bool color;
     bool direction;
     bool overlap;

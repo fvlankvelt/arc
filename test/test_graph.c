@@ -28,7 +28,6 @@ BEGIN_TEST(test_mutate_graph) {
     remove_node(graph, node);
     ASSERT(graph->n_nodes == 3, "n_nodes incorrect");
 
-    int n_coordinates = 0;
     coordinate_t coordinates[3] = {{0, 1}, {1, 0}, {1, 1}};
     bool found[3] = {false, false, false};
     for (const node_t* n = first_node(graph); n != NULL; n = next_node(n)) {

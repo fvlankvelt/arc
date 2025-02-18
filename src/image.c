@@ -349,7 +349,7 @@ abstraction_t* sample_abstraction(trail_t** p_trail) {
 }
 
 trail_t* observe_abstraction(trail_t* trail, abstraction_t* abstraction) {
-    const categorical_t* dist = next_choice(trail);
+    /* const categorical_t* dist = */ next_choice(trail);
     int abs_idx = 0;
     while (abstractions[abs_idx].func != NULL) {
         if (&abstractions[abs_idx] == abstraction) {

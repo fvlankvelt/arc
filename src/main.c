@@ -72,8 +72,8 @@ int main(int argc, char* argv[]) {
         for (node_t* node = graph->nodes; node; node = node->next) {
             if (filter->filter->func(graph, node, &filter->args)) {
                 transform_arguments_t transform_args = call->arguments;
-                if (apply_binding(graph, node, &call->dynamic, &transform_args)) {
-                    call->transform->func(graph, node, &transform_args);
+                if (apply_binding(graph, node, &call->dynamic, &transform_args) &&
+                    call->transform->func(graph, node, &transform_args)) {
                     transformed = true;
                 }
             }

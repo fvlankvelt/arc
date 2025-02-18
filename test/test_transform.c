@@ -5,10 +5,10 @@
 #include "transform.h"
 
 // for testing
-extern void update_color(graph_t* graph, node_t* node, transform_arguments_t* params);
-extern void move_node(graph_t* graph, node_t* node, transform_arguments_t* params);
-extern void extend_node(graph_t* graph, node_t* node, transform_arguments_t* params);
-extern void move_node_max(graph_t* graph, node_t* node, transform_arguments_t* params);
+extern bool update_color(graph_t* graph, node_t* node, transform_arguments_t* params);
+extern bool move_node(graph_t* graph, node_t* node, transform_arguments_t* params);
+extern bool extend_node(graph_t* graph, node_t* node, transform_arguments_t* params);
+extern bool move_node_max(graph_t* graph, node_t* node, transform_arguments_t* params);
 
 BEGIN_TEST(test_update_color) {
     // clang-format off
