@@ -372,6 +372,62 @@ fail:
     return false;
 }
 
+bool hollow_rectangle(graph_t* graph, node_t* node, transform_arguments_t* args) {
+    int min_x = graph->width, max_x = 0, min_y = graph->height, max_y = 0;
+    for (int i = 0; i < node->n_subnodes; i++) {
+        subnode_t subnode = get_subnode(node, i);
+        if (subnode.coord.pri < min_x) {
+            min_x = subnode.coord.pri;
+        }
+        if (subnode.coord.pri > max_x) {
+            max_x = subnode.coord.pri;
+        }
+        if (subnode.coord.sec < min_y) {
+            min_y = subnode.coord.sec;
+        }
+        if (subnode.coord.sec > max_y) {
+            max_y = subnode.coord.sec;
+        }
+    }
+
+    color_t color = get_color(graph, args->color);
+    int n_new_subnodes = 0;
+    subnode_block_t* new_subnodes = new_subnode_block(graph);
+    int n_new_border = 0;
+    subnode_block_t* new_border = new_subnode_block(graph);
+    for (int i = 0; i < node->n_subnodes; i++) {
+        subnode_t s = get_subnode(node, i);
+        if (s.coord.pri == min_x || s.coord.pri == max_x || s.coord.sec == min_y ||
+            s.coord.sec == max_y) {
+            add_subnode_to_block(graph, new_border, s, &n_new_border);
+        } else {
+            add_subnode_to_block(
+                graph, new_subnodes, (subnode_t){s.coord, color}, &n_new_subnodes);
+        }
+    }
+    set_subnodes(graph, node, new_border, n_new_border);
+
+    if (color != graph->background_color) {
+        int max_pri = 0;
+        for (node_t* other = graph->nodes; other; other = other->next) {
+            if (other->coord.pri > max_pri) {
+                max_pri = other->coord.pri;
+            }
+        }
+        node_t* node = add_node(graph, (coordinate_t){max_pri + 1, 0}, 0);
+        set_subnodes(graph, node, new_subnodes, n_new_subnodes);
+    } else {
+        free_subnode_block(graph, new_subnodes);
+    }
+
+    return true;
+
+fail:
+    free_subnode_block(graph, new_border);
+    free_subnode_block(graph, new_subnodes);
+    return false;
+}
+
 transform_func_t transformations[] = {
     {
         .func = update_color,
@@ -409,6 +465,11 @@ transform_func_t transformations[] = {
         .color = true,
         .overlap = true,
         .name = "fill_rectangle",
+    },
+    {
+        .func = hollow_rectangle,
+        .color = true,
+        .name = "hollow_rectangle",
     },
     {
         .func = NULL,
