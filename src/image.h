@@ -11,6 +11,7 @@ void print_graph(const graph_t* graph);
 
 graph_t* get_no_abstraction_graph(const graph_t* in);
 graph_t* get_connected_components_graph(const graph_t* in);
+graph_t* get_connected_components_graph_background_removed(const graph_t* in);
 
 graph_t* undo_abstraction(const graph_t* in);
 

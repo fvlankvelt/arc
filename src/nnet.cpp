@@ -78,7 +78,6 @@ struct NNetImageStepImpl : nn::Module {
           batchnorm(register_module(
               "batchnorm",
               nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
-                                  .affine(false)
                                   .momentum(config.batch_norm_momentum)))),
           conv(register_module(
               "conv",
@@ -88,7 +87,6 @@ struct NNetImageStepImpl : nn::Module {
           batchnorm_color(register_module(
               "batchnorm_color",
               nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
-                                  .affine(false)
                                   .momentum(config.batch_norm_momentum)))),
           conv_color(register_module(
               "conv_color",
@@ -97,7 +95,6 @@ struct NNetImageStepImpl : nn::Module {
           batchnorm_horizontal(register_module(
               "batchnorm_horizontal",
               nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
-                                  .affine(false)
                                   .momentum(config.batch_norm_momentum)))),
           conv_horizontal(register_module(
               "conv_horizontal",
@@ -106,7 +103,6 @@ struct NNetImageStepImpl : nn::Module {
           batchnorm_vertical(register_module(
               "batchnorm_vertical",
               nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
-                                  .affine(false)
                                   .momentum(config.batch_norm_momentum)))),
           conv_vertical(register_module(
               "conv_vertical",

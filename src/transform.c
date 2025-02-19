@@ -50,12 +50,15 @@ static inline bool is_valid_subnode(const subnode_iter_t* iter) {
 }
 
 coordinate_t next_coordinate(subnode_iter_t* iter) {
-    coordinate_t coord = iter->block->subnode[iter->i % SUBNODE_BLOCK_SIZE];
     if (iter->i == SUBNODE_BLOCK_SIZE - 1) {
         iter->block = iter->block->next;
     }
     iter->i++;
-    return coord;
+    if (is_valid_subnode(iter)) {
+        return iter->block->subnode[iter->i % SUBNODE_BLOCK_SIZE];
+    } else {
+        return (coordinate_t) {-1, -1};
+    }
 }
 
 static inline bool check_bounds(const graph_t* graph, coordinate_t coord) {
@@ -216,8 +219,8 @@ bool rotate_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
         sum_y += subnode.coord.sec;
     }
     coordinate_t center = {
-        sum_x / node->n_subnodes,
-        sum_y / node->n_subnodes,
+        (sum_x + node->n_subnodes / 2) / node->n_subnodes,
+        (sum_y + node->n_subnodes / 2) / node->n_subnodes,
     };
     for (int i = 0; i < node->n_subnodes; i++) {
         subnode_t subnode = get_subnode(node, i);
@@ -237,6 +240,64 @@ bool rotate_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
         }
     }
     return true;
+}
+
+/**
+ * add a border with thickness 1 and border_color around the given node
+ */
+bool add_border(graph_t* graph, node_t* node, transform_arguments_t* args) {
+    int size = bitset_size(graph);
+    long bitset[size];
+    for (int i = 0; i < size; i++) {
+        bitset[i] = 0;
+    }
+    int max_pri = -1;
+    for (const node_t* other = graph->nodes; other; other = other->next) {
+        if (other->coord.pri > max_pri) {
+            max_pri = other->coord.pri;
+        }
+        subnode_iter_t iter;
+        for (coordinate_t coord = init_subnode_iter(&iter, other->subnodes, other->n_subnodes);
+             is_valid_subnode(&iter);
+             coord = next_coordinate(&iter)) {
+            add_coordinate(graph, bitset, coord);
+        }
+    }
+
+    color_t color = get_color(graph, args->color);
+    int n_new_subnodes = 0;
+    subnode_block_t* new_subnodes = new_subnode_block(graph);
+    for (int i = 0; i < node->n_subnodes; i++) {
+        subnode_t subnode = get_subnode(node, i);
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                coordinate_t coord = {
+                    subnode.coord.pri + dx,
+                    subnode.coord.sec + dy,
+                };
+                if (!check_bounds(graph, coord) || coordinate_in_set(graph, bitset, coord)) {
+                    continue;
+                }
+                add_coordinate(graph, bitset, coord);
+                bool added = add_subnode_to_block(
+                    graph, new_subnodes, (subnode_t){coord, color}, &n_new_subnodes);
+                if (!added) {
+                    goto fail;
+                }
+            }
+        }
+    }
+    if (n_new_subnodes > 0) {
+        node_t* new_node = add_node(graph, (coordinate_t){max_pri + 1, 0}, 0);
+        if (new_node) {
+            set_subnodes(graph, new_node, new_subnodes, n_new_subnodes);
+            return true;
+        }
+    }
+
+fail:
+    free_subnode_block(graph, new_subnodes);
+    return false;
 }
 
 transform_func_t transformations[] = {
@@ -265,6 +326,11 @@ transform_func_t transformations[] = {
         .func = rotate_node,
         .rotation_dir = true,
         .name = "rotate_node",
+    },
+    {
+        .func = add_border,
+        .color = true,
+        .name = "add_border",
     },
     {
         .func = NULL,
@@ -607,7 +673,7 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
     return trail;
 }
 
-void free_transform(task_t * task, transform_call_t * call) {
+void free_transform(task_t* task, transform_call_t* call) {
     if (call->dynamic.direction) {
         free_item(task->_mem_binding_calls, call->dynamic.direction);
     }

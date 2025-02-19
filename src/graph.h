@@ -351,7 +351,9 @@ static inline node_t *add_node(graph_t *graph, coordinate_t coord, int n_subnode
         last_block = graph->_free_blocks;
         graph->_free_blocks = graph->_free_blocks->next;
     }
-    last_block->next = NULL;
+    if (last_block) {
+        last_block->next = NULL;
+    }
     node->n_subnodes = n_subnodes;
     node->n_edges = 0;
 
