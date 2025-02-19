@@ -48,6 +48,7 @@ using namespace std;
 class NNetTrail;
 
 struct NNetConfig {
+    double batch_norm_momentum;
     int n_prepare;
     int n_conv_channels;
     int k;
@@ -76,8 +77,9 @@ struct NNetImageStepImpl : nn::Module {
         : config(config),
           batchnorm(register_module(
               "batchnorm",
-              nn::BatchNorm3d(
-                  nn::BatchNormOptions(config.n_conv_channels).affine(false).momentum(0.99)))),
+              nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
+                                  .affine(false)
+                                  .momentum(config.batch_norm_momentum)))),
           conv(register_module(
               "conv",
               nn::Conv3d(
@@ -85,24 +87,27 @@ struct NNetImageStepImpl : nn::Module {
                       .padding({0, 1, 1})))),
           batchnorm_color(register_module(
               "batchnorm_color",
-              nn::BatchNorm3d(
-                  nn::BatchNormOptions(config.n_conv_channels).affine(false).momentum(0.99)))),
+              nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
+                                  .affine(false)
+                                  .momentum(config.batch_norm_momentum)))),
           conv_color(register_module(
               "conv_color",
               nn::Conv3d(nn::Conv3dOptions(
                   config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
           batchnorm_horizontal(register_module(
               "batchnorm_horizontal",
-              nn::BatchNorm3d(
-                  nn::BatchNormOptions(config.n_conv_channels).affine(false).momentum(0.99)))),
+              nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
+                                  .affine(false)
+                                  .momentum(config.batch_norm_momentum)))),
           conv_horizontal(register_module(
               "conv_horizontal",
               nn::Conv3d(nn::Conv3dOptions(
                   config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
           batchnorm_vertical(register_module(
               "batchnorm_vertical",
-              nn::BatchNorm3d(
-                  nn::BatchNormOptions(config.n_conv_channels).affine(false).momentum(0.99)))),
+              nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
+                                  .affine(false)
+                                  .momentum(config.batch_norm_momentum)))),
           conv_vertical(register_module(
               "conv_vertical",
               nn::Conv3d(nn::Conv3dOptions(
@@ -389,6 +394,10 @@ class NNetBuilder {
    public:
     NNetBuilder() : steps() {}
 
+    NNetBuilder& batch_norm_momentum(double batch_norm_momentum) {
+        config.batch_norm_momentum = batch_norm_momentum;
+        return *this;
+    }
     NNetBuilder& n_prepare(int n_prepare) {
         config.n_prepare = n_prepare;
         return *this;
@@ -427,7 +436,7 @@ extern "C" {
 
 guide_net_builder_t create_network() {
     NNetBuilder* builder = new NNetBuilder();
-    builder->k(128).v(64).n_conv_channels(256).n_prepare(10);
+    builder->k(128).v(64).n_conv_channels(128).n_prepare(10).batch_norm_momentum(0.01);
     return builder;
 }
 
