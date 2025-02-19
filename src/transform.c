@@ -57,7 +57,7 @@ coordinate_t next_coordinate(subnode_iter_t* iter) {
     if (is_valid_subnode(iter)) {
         return iter->block->subnode[iter->i % SUBNODE_BLOCK_SIZE];
     } else {
-        return (coordinate_t) {-1, -1};
+        return (coordinate_t){-1, -1};
     }
 }
 
@@ -300,6 +300,78 @@ fail:
     return false;
 }
 
+bool fill_rectangle(graph_t* graph, node_t* node, transform_arguments_t* args) {
+    color_t color = get_color(graph, args->color);
+    bool overlap = args->overlap;
+
+    int size = bitset_size(graph);
+    long bitset[size];
+    for (int i = 0; i < size; i++) {
+        bitset[i] = 0;
+    }
+    int max_pri = -1;
+    for (const node_t* other = graph->nodes; other; other = other->next) {
+        if (other->coord.pri > max_pri) {
+            max_pri = other->coord.pri;
+        }
+        // always add pixels for node itself, when overlap is not allowed add others too
+        if (other == node || !overlap) {
+            subnode_iter_t iter;
+            for (coordinate_t coord =
+                     init_subnode_iter(&iter, other->subnodes, other->n_subnodes);
+                 is_valid_subnode(&iter);
+                 coord = next_coordinate(&iter)) {
+                add_coordinate(graph, bitset, coord);
+            }
+        }
+    }
+
+    int min_x = graph->width, max_x = 0, min_y = graph->height, max_y = 0;
+    for (int i = 0; i < node->n_subnodes; i++) {
+        subnode_t subnode = get_subnode(node, i);
+        if (subnode.coord.pri < min_x) {
+            min_x = subnode.coord.pri;
+        }
+        if (subnode.coord.pri > max_x) {
+            max_x = subnode.coord.pri;
+        }
+        if (subnode.coord.sec < min_y) {
+            min_y = subnode.coord.sec;
+        }
+        if (subnode.coord.sec > max_y) {
+            max_y = subnode.coord.sec;
+        }
+    }
+
+    int n_new_subnodes = 0;
+    subnode_block_t* new_subnodes = new_subnode_block(graph);
+    for (int x = min_x; x <= max_x; x++) {
+        for (int y = min_y; y <= max_y; y++) {
+            coordinate_t coord = {x, y};
+            if (coordinate_in_set(graph, bitset, coord)) {
+                continue;
+            }
+            bool added = add_subnode_to_block(
+                graph, new_subnodes, (subnode_t){coord, color}, &n_new_subnodes);
+            if (!added) {
+                goto fail;
+            }
+        }
+    }
+
+    if (n_new_subnodes > 0) {
+        node_t* new_node = add_node(graph, (coordinate_t){max_pri + 1, 0}, 0);
+        if (new_node) {
+            set_subnodes(graph, new_node, new_subnodes, n_new_subnodes);
+            return true;
+        }
+    }
+
+fail:
+    free_subnode_block(graph, new_subnodes);
+    return false;
+}
+
 transform_func_t transformations[] = {
     {
         .func = update_color,
@@ -331,6 +403,12 @@ transform_func_t transformations[] = {
         .func = add_border,
         .color = true,
         .name = "add_border",
+    },
+    {
+        .func = fill_rectangle,
+        .color = true,
+        .overlap = true,
+        .name = "fill_rectangle",
     },
     {
         .func = NULL,
