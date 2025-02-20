@@ -428,6 +428,11 @@ fail:
     return false;
 }
 
+bool delete_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
+    remove_node(graph, node);
+    return true;
+}
+
 transform_func_t transformations[] = {
     {
         .func = update_color,
@@ -470,6 +475,10 @@ transform_func_t transformations[] = {
         .func = hollow_rectangle,
         .color = true,
         .name = "hollow_rectangle",
+    },
+    {
+        .func = delete_node,
+        .name = "delete_node",
     },
     {
         .func = NULL,

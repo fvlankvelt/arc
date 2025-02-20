@@ -308,6 +308,91 @@ graph_t* undo_abstraction(const graph_t* in) {
     return out;
 }
 
+/*
+black
+blue
+red
+green
+yellow
+gray-light
+magenta
+orange
+blue-light
+maroon
+*/
+u_int8_t colormap[][3] = {
+    {0, 0, 0},
+    {0, 0, 255},
+    {255, 0, 0},
+    {0, 255, 0},
+    {255, 255, 0},
+    {211, 211, 211},
+    {255, 0, 255},
+    {255, 165, 0},
+    {173, 216, 230},
+    {128, 0, 0},
+};
+
+/**
+ * print triplet of graphs
+ * ___________________
+ * |                 |
+ * |      source     |
+ * |                 |
+ * | target    found |
+ * |_________________|
+ */
+void print_graphs(
+    FILE* stream, const graph_t* source, const graph_t* target, const graph_t* found) {
+    int width = target->width + found->width + 3;
+    if (source->width > width) {
+        width = source->width;
+    }
+    int height =
+        source->height + (target->height > found->height ? target->height : found->height);
+
+    color_t grid[width][height];
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            grid[x][y] = source->background_color;
+        }
+    }
+
+    int offset_x = (width - source->width) / 2;
+    for (const node_t* node = source->nodes; node; node = node->next) {
+        for (int sub = 0; sub < node->n_subnodes; sub++) {
+            subnode_t subnode = get_subnode(node, sub);
+            grid[offset_x + subnode.coord.pri][subnode.coord.sec] = subnode.color;
+        }
+    }
+
+    offset_x = (width - (target->width + found->width + 3)) / 2;
+    for (const node_t* node = target->nodes; node; node = node->next) {
+        for (int sub = 0; sub < node->n_subnodes; sub++) {
+            subnode_t subnode = get_subnode(node, sub);
+            grid[offset_x + subnode.coord.pri][subnode.coord.sec] = subnode.color;
+        }
+    }
+
+    offset_x += target->width + 3;
+    for (const node_t* node = found->nodes; node; node = node->next) {
+        for (int sub = 0; sub < node->n_subnodes; sub++) {
+            subnode_t subnode = get_subnode(node, sub);
+            grid[offset_x + subnode.coord.pri][subnode.coord.sec] = subnode.color;
+        }
+    }
+
+    fprintf(stream, "P6 %d %d 255", width, height);
+    for (int y = 0; y < height; y++) {
+        fprintf(stream, "\n");
+        for (int x = 0; x < width; x++) {
+            color_t color = grid[x][y];
+            u_int8_t* rgb = colormap[color];
+            fprintf(stream, "%d %d %d  ", rgb[0], rgb[1], rgb[2]);
+        }
+    }
+}
+
 abstraction_t abstractions[] = {
     {
         .func = get_connected_components_graph_background_removed,

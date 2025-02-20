@@ -121,6 +121,12 @@ int main(int argc, char* argv[]) {
                 filter->filter->name,
                 call->transform->name);
             fflush(out);
+
+            char image_file_name[128];
+            snprintf(image_file_name, 128, "img/%s-%d.pnm", task_def->name, i_train);
+            FILE * image = fopen(image_file_name, "w");
+            print_graphs(image, input, output, reconstructed);
+            fclose(image);
         }
 
         free_graph(reconstructed);

@@ -15,6 +15,9 @@ graph_t* get_connected_components_graph_background_removed(const graph_t* in);
 
 graph_t* undo_abstraction(const graph_t* in);
 
+void print_graphs(
+    FILE* stream, const graph_t* source, const graph_t* target, const graph_t* found);
+
 typedef struct _abstraction {
     graph_t* (*func)(const graph_t* in);
     char* name;

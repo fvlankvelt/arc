@@ -12,6 +12,7 @@ extern bool move_node_max(graph_t* graph, node_t* node, transform_arguments_t* p
 extern bool rotate_node(graph_t* graph, node_t* node, transform_arguments_t* params);
 extern bool add_border(graph_t* graph, node_t* node, transform_arguments_t* params);
 extern bool fill_rectangle(graph_t* graph, node_t* node, transform_arguments_t* params);
+extern bool hollow_rectangle(graph_t* graph, node_t* node, transform_arguments_t* params);
 
 BEGIN_TEST(test_update_color) {
     // clang-format off
@@ -188,6 +189,33 @@ BEGIN_TEST(test_fill_rectangle) {
 }
 END_TEST()
 
+BEGIN_TEST(test_hollow_rectangle) {
+    // clang-format off
+    color_t grid[] = {
+      0, 1, 0,
+      1, 1, 1,
+      1, 1, 2,
+    };
+    // clang-format on
+    graph_t* graph = graph_from_grid(grid, 3, 3);
+    graph_t* abstraction = get_connected_components_graph_background_removed(graph);
+
+    transform_arguments_t params = {.color = 4};
+    node_t* node = get_node(abstraction, (coordinate_t){1, 0});
+    ASSERT(node->n_subnodes == 6, "node not found");
+
+    bool hollow = hollow_rectangle(abstraction, node, &params);
+    ASSERT(hollow, "hollowing rectangle failed");
+
+    node_t * rect = get_node(abstraction, (coordinate_t){3, 0});
+    ASSERT(rect && rect->n_subnodes == 1, "rectangle not fully hollow");
+    ASSERT(node->n_subnodes == 5, "inner pixel not removed from node");
+
+    free_graph(abstraction);
+    free_graph(graph);
+}
+END_TEST()
+
 DEFINE_SUITE(test_transform, ({
               RUN_TEST(test_update_color);
               RUN_TEST(test_move_node);
@@ -196,4 +224,5 @@ DEFINE_SUITE(test_transform, ({
               RUN_TEST(test_rotate_node);
               RUN_TEST(test_add_border);
               RUN_TEST(test_fill_rectangle);
+              RUN_TEST(test_hollow_rectangle);
           }))
