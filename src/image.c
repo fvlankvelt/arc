@@ -7,11 +7,10 @@
 #include "guide.h"
 
 graph_t* new_grid(const color_t bg_color, int n_rows, int n_cols) {
-    graph_t* graph = new_graph(n_cols, n_rows);
+    graph_t* graph = new_graph(n_cols, n_rows, bg_color);
     if (unlikely(graph == NULL)) {
         return NULL;
     }
-    graph->background_color = bg_color;
     for (int row = 0; row < n_rows; row++) {
         for (int col = 0; col < n_cols; col++) {
             coordinate_t coord = {col, row};
@@ -90,7 +89,7 @@ void print_graph(const graph_t* graph) {
 }
 
 graph_t* get_no_abstraction_graph(const graph_t* in) {
-    graph_t* out = new_graph(in->width, in->height);
+    graph_t* out = new_graph(in->width, in->height, in->background_color);
     if (unlikely(out == NULL)) {
         return NULL;
     }
@@ -108,7 +107,7 @@ graph_t* get_no_abstraction_graph(const graph_t* in) {
 }
 
 graph_t* subgraph_by_color(const graph_t* in, color_t color) {
-    graph_t* out = new_graph(in->width, in->height);
+    graph_t* out = new_graph(in->width, in->height, in->background_color);
     for (const node_t* node = in->nodes; node; node = node->next) {
         if (node->n_subnodes == 1) {
             subnode_t subnode = get_subnode(node, 0);
@@ -203,8 +202,7 @@ void _link_nodes_without_intermediary(graph_t* out, const graph_t* in) {
 
 graph_t* _connected_components_graph(
     const graph_t* in, bool remove_bg_corners, bool remove_bg_edges, bool remove_all_bg) {
-    graph_t* out = new_graph(in->width, in->height);
-    out->background_color = in->background_color;
+    graph_t* out = new_graph(in->width, in->height, in->background_color);
     for (color_t color = 0; color < 10; color++) {
         graph_t* by_color = subgraph_by_color(in, color);
         node_set_t* visited = new_node_set(by_color->n_nodes);
@@ -286,8 +284,7 @@ graph_t* get_connected_components_graph_background_removed(const graph_t* in) {
 }
 
 graph_t* undo_abstraction(const graph_t* in) {
-    graph_t* out = new_graph(in->width, in->height);
-    out->background_color = in->background_color;
+    graph_t* out = new_graph(in->width, in->height, in->background_color);
     for (int x = 0; x < in->width; x++) {
         for (int y = 0; y < in->height; y++) {
             node_t* new_node = add_node(out, (coordinate_t){x, y}, 1);
@@ -359,6 +356,7 @@ void print_graphs(
     }
 
     int offset_x = (width - source->width) / 2;
+    assert(offset_x > 0 && offset_x + source->width <= width && source->height <= height);
     for (const node_t* node = source->nodes; node; node = node->next) {
         for (int sub = 0; sub < node->n_subnodes; sub++) {
             subnode_t subnode = get_subnode(node, sub);
@@ -366,29 +364,32 @@ void print_graphs(
         }
     }
 
+    int offset_y = source->height;
+
     offset_x = (width - (target->width + found->width + 3)) / 2;
+    assert(offset_x >= 0 && offset_x + target->width <= width && offset_y + target->height <= height);
     for (const node_t* node = target->nodes; node; node = node->next) {
         for (int sub = 0; sub < node->n_subnodes; sub++) {
             subnode_t subnode = get_subnode(node, sub);
-            grid[offset_x + subnode.coord.pri][subnode.coord.sec] = subnode.color;
+            grid[offset_x + subnode.coord.pri][offset_y + subnode.coord.sec] = subnode.color;
         }
     }
 
     offset_x += target->width + 3;
+    assert(offset_x > 0 && offset_x + found->width <= width && offset_y + found->height <= height);
     for (const node_t* node = found->nodes; node; node = node->next) {
         for (int sub = 0; sub < node->n_subnodes; sub++) {
             subnode_t subnode = get_subnode(node, sub);
-            grid[offset_x + subnode.coord.pri][subnode.coord.sec] = subnode.color;
+            grid[offset_x + subnode.coord.pri][offset_y + subnode.coord.sec] = subnode.color;
         }
     }
 
-    fprintf(stream, "P6 %d %d 255", width, height);
+    fprintf(stream, "P6 %d %d 255\n", width, height);
     for (int y = 0; y < height; y++) {
-        fprintf(stream, "\n");
         for (int x = 0; x < width; x++) {
             color_t color = grid[x][y];
             u_int8_t* rgb = colormap[color];
-            fprintf(stream, "%d %d %d  ", rgb[0], rgb[1], rgb[2]);
+            fprintf(stream, "%c%c%c", rgb[0], rgb[1], rgb[2]);
         }
     }
 }

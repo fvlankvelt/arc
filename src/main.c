@@ -69,7 +69,8 @@ int main(int argc, char* argv[]) {
 
         // printf("Found training example for %s\n", task_def->name);
         bool transformed = false;
-        for (node_t* node = graph->nodes; node; node = node->next) {
+        for (node_t* node = graph->nodes; node;) {
+            node_t* next_node = node->next;
             if (filter->filter->func(graph, node, &filter->args)) {
                 transform_arguments_t transform_args = call->arguments;
                 if (apply_binding(graph, node, &call->dynamic, &transform_args) &&
@@ -77,6 +78,7 @@ int main(int argc, char* argv[]) {
                     transformed = true;
                 }
             }
+            node = next_node;
         }
 
         graph_t* reconstructed = undo_abstraction(graph);
@@ -124,7 +126,7 @@ int main(int argc, char* argv[]) {
 
             char image_file_name[128];
             snprintf(image_file_name, 128, "img/%s-%d.pnm", task_def->name, i_train);
-            FILE * image = fopen(image_file_name, "w");
+            FILE* image = fopen(image_file_name, "w");
             print_graphs(image, input, output, reconstructed);
             fclose(image);
         }

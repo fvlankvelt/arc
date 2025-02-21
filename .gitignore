@@ -7,3 +7,4 @@ test_obj/
 analysis/*.csv
 analysis/.ipynb_checkpoints
 analysis/venv
+img/*.pnm

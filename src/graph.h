@@ -3,8 +3,8 @@
 
 #include <assert.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define NODE_INDEX_SIZE 1024
 #define NODES_ALLOC 1024
@@ -132,18 +132,19 @@ struct _list_entry {
         } else {                                                \
             while ((*p)->next != e) {                           \
                 p = &((*p)->next);                              \
+                assert(*p);                                     \
             }                                                   \
             (*p)->next = e->next;                               \
         }                                                       \
     }
 
-static inline graph_t *new_graph(unsigned short width, unsigned short height) {
+static inline graph_t *new_graph(unsigned short width, unsigned short height, color_t bgcolor) {
     graph_t *graph = malloc(sizeof(graph_t));
 
     graph->width = width;
     graph->height = height;
     graph->is_multicolor = false;
-    graph->background_color = BACKGROUND_COLOR;
+    graph->background_color = bgcolor;
 
     graph->n_nodes = 0;
     _init_list(&graph->nodes);
@@ -193,9 +194,9 @@ static inline subnode_block_t *new_subnode_block(graph_t *graph) {
     return block;
 }
 
-static inline bool add_subnode_to_block(graph_t *graph, subnode_block_t *block,
-                                        subnode_t subnode, int *n_subnodes) {
-                                            int n_blocks = 1;
+static inline bool add_subnode_to_block(
+    graph_t *graph, subnode_block_t *block, subnode_t subnode, int *n_subnodes) {
+    int n_blocks = 1;
     subnode_block_t *last_block = block;
     while (last_block->next) {
         last_block = last_block->next;
@@ -257,9 +258,11 @@ static inline void set_subnode(const node_t *node, int idx, subnode_t subnode) {
     block->color[idx] = subnode.color;
 }
 
-static inline void set_subnodes(graph_t *graph, node_t *node, subnode_block_t *block,
-                                int n_subnodes) {
-    free_subnode_block(graph, node->subnodes);
+static inline void set_subnodes(
+    graph_t *graph, node_t *node, subnode_block_t *block, int n_subnodes) {
+    if (node->subnodes) {
+        free_subnode_block(graph, node->subnodes);
+    }
     node->subnodes = block;
     node->n_subnodes = n_subnodes;
 }
@@ -292,7 +295,7 @@ static inline derived_props_t get_derived_properties(const graph_t *graph) {
             }
             for (int i = 0; i < node->n_subnodes; i++) {
                 subnode_t subnode = get_subnode(node, i);
-                counts[(unsigned char) subnode.color]++;
+                counts[(unsigned char)subnode.color]++;
             }
         }
         props->max_size = max_size;
@@ -346,13 +349,15 @@ static inline node_t *add_node(graph_t *graph, coordinate_t coord, int n_subnode
 
     graph->_blocks_available -= n_blocks;
     node->subnodes = graph->_free_blocks;
-    subnode_block_t * last_block = NULL;
+    subnode_block_t *last_block = NULL;
     while (n_blocks-- > 0) {
         last_block = graph->_free_blocks;
         graph->_free_blocks = graph->_free_blocks->next;
     }
     if (last_block) {
         last_block->next = NULL;
+    } else {
+        node->subnodes = NULL;
     }
     node->n_subnodes = n_subnodes;
     node->n_edges = 0;
@@ -410,8 +415,8 @@ static inline void remove_node(graph_t *graph, node_t *node) {
     graph->_free_blocks = node->subnodes;
 }
 
-static inline edge_t *add_edge(graph_t *graph, node_t *from, node_t *to,
-                               edge_direction_t direction) {
+static inline edge_t *add_edge(
+    graph_t *graph, node_t *from, node_t *to, edge_direction_t direction) {
     if (unlikely(graph->_edges_available < 2)) {
         return NULL;
     }

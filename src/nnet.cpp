@@ -463,6 +463,7 @@ trail_net_t create_network_trail(
         for (int x = 0; x < input_width; x++) {
             int input_idx = y * input_width + x;
             int z = input_pixels[input_idx];
+            assert(z >= 0 && z < 10);
             int input_data_idx = (y + 1) * (input_width + 2) + (x + 1);
             assert(input_data_idx < input_size);
             input_data[z * input_size + input_data_idx] = 1.0f;
@@ -476,6 +477,7 @@ trail_net_t create_network_trail(
         for (int x = 0; x < output_width; x++) {
             int output_idx = y * output_width + x;
             int z = output_pixels[output_idx];
+            assert(z >= 0 && z < 10);
             int output_data_idx = (y + 1) * (output_width + 2) + (x + 1);
             assert(output_data_idx < output_size);
             output_data[z * output_size + output_data_idx] = 1.0f;

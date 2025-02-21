@@ -407,7 +407,7 @@ bool hollow_rectangle(graph_t* graph, node_t* node, transform_arguments_t* args)
     }
     set_subnodes(graph, node, new_border, n_new_border);
 
-    if (color != graph->background_color) {
+    if (color != graph->background_color && n_new_subnodes > 0) {
         int max_pri = 0;
         for (node_t* other = graph->nodes; other; other = other->next) {
             if (other->coord.pri > max_pri) {
@@ -421,14 +421,10 @@ bool hollow_rectangle(graph_t* graph, node_t* node, transform_arguments_t* args)
     }
 
     return true;
-
-fail:
-    free_subnode_block(graph, new_border);
-    free_subnode_block(graph, new_subnodes);
-    return false;
 }
 
-bool delete_node(graph_t* graph, node_t* node, transform_arguments_t* args) {
+bool delete_node(
+    graph_t* graph, node_t* node, __attribute__((unused)) transform_arguments_t* args) {
     remove_node(graph, node);
     return true;
 }
@@ -563,7 +559,7 @@ bool apply_binding(
     if (dynamic->color) {
         binding_call_t* binding = dynamic->color;
         node_t* target = get_binding_node(graph, node, binding);
-        if (target) {
+        if (target && target->n_subnodes > 0) {
             args->color = get_subnode(target, 0).color;
         } else {
             return false;
@@ -664,6 +660,12 @@ void init_transform(guide_builder_t* builder) {
 transform_call_t* sample_transform(
     task_t* task, const graph_t* graph, filter_call_t* filter, trail_t** p_trail) {
     transform_call_t* call = new_item(task->_mem_transform_calls);
+    call->dynamic = (transform_dynamic_arguments_t){
+        .color = NULL,
+        .direction = NULL,
+        .mirror_axis = NULL,
+        .point = NULL,
+    };
     trail_t* trail = *p_trail;
 
     const categorical_t* func_dist = next_choice(trail);
