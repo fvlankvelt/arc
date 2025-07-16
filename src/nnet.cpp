@@ -15,22 +15,14 @@ using namespace std;
  * - color permutation symmetry (with the exception of black & gray?)
  * - rotation & reflection symmetry (dihedral-4 group)
  *
- * For dealing with varying input/output sizes, we can decompose the solution into 3 parts:
- * - convolution (per color)
- *    The convolution can be implemented using a 3D convolution,
- *    with kernel-size = 1 in the color dimension (depth).
- *    Kernels are  restricted to follow representations of the dihedral group.
- * - max-pool (per color, channel)
- *   this takes care of the varying input problem
+ * For dealing with varying input/output sizes, we leverage the transformer architecture.
+ * Each pixel is transformed in Query (size_key), Key (size_key) and Value (size_value).
+ * This attention triple is layered a couple of times for ultimate flexibility.
  *
- * Then
- * - for color-independent choices, sum over the colors
- *   (this enforces color permutation symmetry)
- *    - continue with fully connected layers
- *    - produce a vector of choice dimension and softmax it
- * - for a color-selection choice, do not sum
- *    - layers work on each color separately (with weight sharing)
- *    - ultimately for each color a scalar is produced, distribution is a softmax over these
+ * The transformer is initialized by a convolutional layer that takes the 10 colors as
+ * different features.
+ *
+ * Color permutation symmmetry
  *
  * Rotations (90-degrees and multiples) and reflections form the dihedral-4 group.  Since these
  * are also symmetries, they should be taken care of as this reduces parameter count
@@ -51,27 +43,33 @@ struct NNetConfig {
     double batch_norm_momentum;
     int n_prepare;
     int n_conv_channels;
-    int k;
-    int v;
+    int n_pos_dim;
+    // int k;
+    // int v;
+
+    int size() const { return n_pos_dim * n_pos_dim + n_conv_channels; }
 };
 
-struct NNetState {
-    Tensor observations;
+struct DecoderState {
+    Tensor context;
     Tensor keys;
     Tensor values;
     Tensor dist_state;
     Tensor loss;
 };
 
-struct NNetPrepareState {
+/*
+struct EncoderState {
     Tensor input;
     Tensor output;
 };
+*/
 
 /**
  * evolve image in a color-permutation symmetric way
  * The kernels used are shared across colors
  */
+/*
 struct NNetImageStepImpl : nn::Module {
     NNetImageStepImpl(const NNetConfig& config)
         : config(config),
@@ -178,48 +176,129 @@ struct NNetImageStepImpl : nn::Module {
 };
 
 TORCH_MODULE(NNetImageStep);
+*/
 
-struct NNetPrepareModuleImpl : nn::Module {
-    NNetPrepareModuleImpl(const NNetConfig& config)
-        : input_step(register_module("input_step", NNetImageStep(config))),
-          output_step(register_module("output_step", NNetImageStep(config))) {}
+/**
+ * Embed input & output images
+ * Input, output are 2D images with each color in a separate "feature"
+ * each pixel gets a 2D position and is embedded in feature space by a Convolutional layer
+ * input/output pixels get differentiated by a separate "position" dimension.
+ *
+ * The positional embedding makes sure that nearby pixels can find each other as (query, key)
+ * inner products.
+ */
+struct EmbeddingImpl : nn::Module {
+    EmbeddingImpl(const NNetConfig &config)
+        : config(config),
+          conv_input(register_module(
+              "conv_input",
+              nn::Conv2d(
+                  nn::Conv2dOptions(10, config.n_conv_channels, {3, 3}).padding({1, 1})))),
+          conv_output(register_module(
+              "conv_output",
+              nn::Conv2d(
+                  nn::Conv2dOptions(10, config.n_conv_channels, {3, 3}).padding({1, 1})))) {}
 
-    NNetPrepareState forward(const NNetPrepareState& state) {
-        auto tmp_input = input_step->forward(state.input);
-        auto tmp_output = output_step->forward(state.output);
-        return {
-            input_step->merge(tmp_input, tmp_output),
-            output_step->merge(tmp_output, tmp_input),
-        };
+    Tensor forward(const Tensor &input, const Tensor &output) {
+        Tensor input_pos = embed_position(input); // 65536, 7, 7
+        Tensor input_feat = conv_input->forward(input); // 128, 7, 7
+        // cout << "pos: " << input_pos.sizes() << ", feat: " << input_feat.sizes() << endl;
+        Tensor input_flat = torch::flatten({torch::cat({input_pos, input_feat}, 0)}, 1);
+        Tensor output_pos = embed_position(output);
+        Tensor output_feat = conv_output->forward(output);
+        Tensor output_flat = torch::flatten({torch::cat({output_pos, output_feat}, 0)}, 1);
+        return torch::transpose(torch::cat({input_flat, output_flat}, 1), 0, 1);
     }
 
    private:
-    NNetImageStep input_step;
-    NNetImageStep output_step;
+    Tensor embed_position(const Tensor &input) {
+        auto input_sizes = input.sizes();
+        int input_height = input_sizes.at(1);
+        int input_width = input_sizes.at(2);
+
+        // scale position to be in (0, 2 * pi) range
+        // (input_width)
+        Tensor input_hor = (at::arange(input_width) + 0.5f) * 2 * M_PI_2f32 / input_width;
+        // (input_width, n_pos_dim / 2)
+        Tensor input_hor_fourier = input_hor.outer(at::arange(config.n_pos_dim / 2));
+        // (input_width, n_pos_dim)
+        Tensor input_hor_emb =
+            torch::cat({input_hor_fourier.cos(), input_hor_fourier.sin()}, 1).cuda();
+
+        // (input_height)
+        Tensor input_ver = (at::arange(input_height) + 0.5f) * 2 * M_PI_2f32 / input_height;
+        // (input_height, n_pos_dim / 2)
+        Tensor input_ver_fourier = input_ver.outer(at::arange(config.n_pos_dim / 2));
+        // (input_height, n_pos_dim)
+        Tensor input_ver_emb =
+            torch::cat({input_ver_fourier.cos(), input_ver_fourier.sin()}, 1).cuda();
+
+        // embedding is of size 4 * n_pos_dim^2
+        // (4 * n_pos_dim^2, input_height, input_width)
+        return torch::flatten(torch::einsum("ik,jl->klij", {input_ver_emb, input_hor_emb}), 0, 1);
+    }
+
+    NNetConfig config;
+    nn::Conv2d conv_input;
+    nn::Conv2d conv_output;
 };
 
-TORCH_MODULE(NNetPrepareModule);
+TORCH_MODULE(Embedding);
 
-struct NNetModuleImpl : nn::Module {
-    NNetModuleImpl(const NNetConfig& config, int n_choices, const std::string& name)
+struct EncoderStepImpl : nn::Module {
+    EncoderStepImpl(const NNetConfig &config)
+        : qkv(register_parameter("self_attn", torch::rand({config.size(), 3 * config.size()}))),
+          out_proj(register_module("out_proj", nn::Linear(config.size(), config.size()))) {}
+
+    Tensor forward(const Tensor &state) {
+        auto proj = torch::chunk(torch::matmul(state, qkv), 3, 1);
+        return out_proj->forward(
+            torch::scaled_dot_product_attention(proj[0], proj[1], proj[2]));
+    }
+
+   private:
+    Tensor qkv;
+    nn::Linear out_proj;
+};
+
+TORCH_MODULE(EncoderStep);
+
+/**
+ * Decoder with attention.
+ * Each choice is added as (key, value) pair to the decoder state.
+ * When a new distribution is needed, the attention mechanism is used to attend to
+ * - previous choices (decoder self-attention)
+ * - context; the encoded state (cross attention)
+ */
+struct DecoderStepImpl : nn::Module {
+    DecoderStepImpl(const NNetConfig &config, int n_choices, const std::string &name)
         : config(config),
           name(name),
-          project(register_module("project", nn::Linear(2 * config.n_conv_channels, config.k))),
-          decode(register_module("decode", nn::Linear(config.v, n_choices))),
-          encode_key(register_module("encode_key", nn::Linear(n_choices, config.k))),
-          encode_value(register_module("encode_value", nn::Linear(n_choices, config.v))) {}
+          query(register_parameter("query", torch::rand({1, config.size()}))),
+          decode(register_module("decode", nn::Linear(config.size(), n_choices))),
+          cross_key(register_module("cross_key", nn::Linear(config.size(), config.size()))),
+          cross_value(register_module("cross_value", nn::Linear(config.size(), config.size()))),
+          cross_query(register_module("cross_query", nn::Linear(config.size(), config.size()))),
+          self_key(register_module("self_key", nn::Linear(n_choices, config.size()))),
+          self_value(register_module("self_value", nn::Linear(n_choices, config.size()))),
+          self_project(
+              register_module("self_project", nn::Linear(config.size(), config.size()))) {}
 
-    NNetState forward(NNetState& state) {
-        auto query = torch::relu(project->forward(state.observations));
+    DecoderState forward(DecoderState &state) {
+        // cout << "query: " << query.sizes() << ", key: " << state.keys.sizes() << ", values: " << state.values.sizes() << endl;
+        auto self_query = self_project->forward(
+            torch::scaled_dot_product_attention(query, state.keys, state.values));
 
-        // compute weight of each preceding choice, add their corresponding values
-        auto weights = torch::mv(state.keys, query).softmax(0);
-        auto value = torch::mv(state.values.t(), weights);
+        Tensor dist_state = decode->forward(
+            torch::scaled_dot_product_attention(
+                cross_query->forward(self_query),
+                cross_key->forward(state.context),
+                cross_value->forward(state.context)));
 
-        Tensor dist_state = decode->forward(value);
+        // cout << name << " => dist_state: " << dist_state.sizes() << endl;
 
         return {
-            state.observations,
+            state.context,
             state.keys,
             state.values,
             dist_state,
@@ -227,19 +306,20 @@ struct NNetModuleImpl : nn::Module {
         };
     }
 
-    NNetState observe(NNetState& state, int choice) {
+    DecoderState observe(DecoderState &state, int choice) {
         Tensor target = torch::zeros(state.dist_state.sizes());
-        target[choice] = 1.0;
+        target.index({0, choice}) = 1.0;
         Tensor cuda_target = target.cuda();
         // cout << "adding loss " << endl;
         Tensor loss = state.loss +
                       cross_entropy_loss(state.dist_state, cuda_target).set_requires_grad(true);
 
-        Tensor key = encode_key->forward(cuda_target).unsqueeze(0);
-        Tensor value = encode_value->forward(cuda_target).unsqueeze(0);
+        Tensor key = self_key->forward(cuda_target);
+        Tensor value = self_value->forward(cuda_target);
 
+        // cout << name << " => state.keys: " << state.keys.sizes() << ", key: " << key.sizes() << endl;
         return {
-            state.observations,
+            state.context,
             torch::cat({state.keys, key}),
             torch::cat({state.values, value}),
             state.dist_state,
@@ -249,74 +329,55 @@ struct NNetModuleImpl : nn::Module {
 
     NNetConfig config;
     std::string name;
-    nn::Sequential project;
+    torch::Tensor query;
     nn::Sequential decode;
-    nn::Sequential encode_key;
-    nn::Sequential encode_value;
+    nn::Sequential self_key;
+    nn::Sequential self_value;
+    nn::Sequential self_project;
+    nn::Sequential cross_key;
+    nn::Sequential cross_value;
+    nn::Sequential cross_query;
 };
 
-TORCH_MODULE(NNetModule);
+TORCH_MODULE(DecoderStep);
 
 class NNetGuide : nn::Module {
     friend class NNetTrail;
 
    public:
-    NNetGuide(NNetConfig& config, vector<NNetModule>& steps)
+    NNetGuide(NNetConfig &config, vector<DecoderStep> &decoder)
         : config(config),
-          init_input(register_module(
-              "init_input",
-              nn::Conv3d(
-                  nn::Conv3dOptions(1, config.n_conv_channels, {1, 3, 3}).padding({0, 1, 1})))),
-          init_output(register_module(
-              "init_output",
-              nn::Conv3d(
-                  nn::Conv3dOptions(1, config.n_conv_channels, {1, 3, 3}).padding({0, 1, 1})))),
-          prepare(),
-          steps(steps),
+          embedding(register_module("embedding", Embedding(config))),
+          encoder_steps(),
+          decoder_steps(decoder),
           optimizer(
               std::vector<optim::OptimizerParamGroup>(), optim::AdamWOptions().amsgrad(true)),
           scheduler(optimizer, 10000, 0.5),
           minibatch_size(0),
           loss(torch::zeros({1}, TensorOptions().requires_grad(true)).cuda()) {
         int index = 0;
-        for (auto& step : steps) {
+        for (auto &step : decoder) {
             std::string name = "choice_" + std::to_string(index++);
             register_module(name, step);
         }
         for (index = 0; index < config.n_prepare; index++) {
             std::string name = "prepare_" + std::to_string(index++);
-            prepare.push_back(register_module(name, NNetPrepareModule(config)));
+            encoder_steps.push_back(register_module(name, EncoderStep(config)));
         }
         to(kCUDA);
         optimizer.add_param_group(parameters());
     }
 
-    NNetState new_state(const Tensor& input, const Tensor& output) {
-        Tensor tmp_input = init_input->forward(input.cuda());
-        Tensor tmp_output = init_output->forward(output.cuda());
-
-        NNetPrepareState state = {tmp_input, tmp_output};
-        for (auto& prep : prepare) {
+    DecoderState encode(const Tensor &input, const Tensor &output) {
+        Tensor state = embedding->forward(input, output);
+        for (auto &prep : encoder_steps) {
             state = prep->forward(state);
         }
 
-        auto input_sizes = input.sizes();
-        int input_height = input_sizes.at(3);
-        int input_width = input_sizes.at(4);
-        auto max_input = max_pool3d(state.input, {10, input_height, input_width})
-                             .reshape({config.n_conv_channels});
-
-        auto output_sizes = output.sizes();
-        int output_height = output_sizes.at(3);
-        int output_width = output_sizes.at(4);
-        auto max_output = max_pool3d(state.output, {10, output_height, output_width})
-                              .reshape({config.n_conv_channels});
-        auto observations = torch::cat({max_input, max_output});
-
         return {
-            observations,
-            torch::zeros({1, config.k}).cuda(),
-            torch::zeros({1, config.v}).cuda(),
+            state,
+            torch::zeros({1, config.size()}).cuda(),
+            torch::zeros({1, config.size()}).cuda(),
             torch::zeros({0}).cuda(),
             torch::zeros({1}, TensorOptions().requires_grad(true)).cuda(),
         };
@@ -338,12 +399,12 @@ class NNetGuide : nn::Module {
     }
 
     NNetConfig config;
-    // initial transformation from image to the internal (variable image) dimensions
-    nn::Conv3d init_input;
-    nn::Conv3d init_output;
-    vector<NNetPrepareModule> prepare;
 
-    vector<NNetModule> steps;
+    // initial transformation from image to the internal (variable image) dimensions
+    Embedding embedding;
+    vector<EncoderStep> encoder_steps;
+    vector<DecoderStep> decoder_steps;
+
     optim::AdamW optimizer;
     optim::StepLR scheduler;
 
@@ -354,24 +415,27 @@ class NNetGuide : nn::Module {
 
 class NNetTrail {
    public:
-    NNetTrail(NNetGuide* guide, const Tensor& input, const Tensor& output)
-        : guide(guide), iter(guide->steps.begin()), state(guide->new_state(input, output)) {}
+    NNetTrail(NNetGuide *guide, const Tensor &input, const Tensor &output)
+        : guide(guide),
+          iter(guide->decoder_steps.begin()),
+          state(guide->encode(input, output)) {}
 
-    void next_choice(double* p) {
+    void next_choice(double *p) {
         state = (*iter)->forward(state);
         auto soft_dist = state.dist_state.softmax(0).to(kFloat64).cpu();
-        double* dist_values = (double*)soft_dist.data_ptr();
-        for (int i = 0; i < soft_dist.sizes().at(0); i++) {
+        // cout << "  choice: " << soft_dist.sizes() << endl;
+        double *dist_values = (double *)soft_dist.data_ptr();
+        for (int i = 0; i < soft_dist.sizes().at(1); i++) {
             p[i] = dist_values[i];
         }
     }
 
     void observe(int choice) {
-        if (choice >= 0) {
-            state = (*iter)->observe(state, choice);
-        }
+        state = (*iter)->observe(state, choice);
         ++iter;
     }
+
+    void skip_choice() { ++iter; }
 
     float train() {
         double loss_value = state.loss.item().toDouble();
@@ -381,68 +445,62 @@ class NNetTrail {
     }
 
    private:
-    NNetGuide* guide;
-    vector<NNetModule>::iterator iter;
-    NNetState state;
+    NNetGuide *guide;
+    vector<DecoderStep>::iterator iter;
+    DecoderState state;
 };
 
 class NNetBuilder {
    public:
-    NNetBuilder() : steps() {}
+    NNetBuilder() : decoder() {}
 
-    NNetBuilder& batch_norm_momentum(double batch_norm_momentum) {
+    NNetBuilder &batch_norm_momentum(double batch_norm_momentum) {
         config.batch_norm_momentum = batch_norm_momentum;
         return *this;
     }
-    NNetBuilder& n_prepare(int n_prepare) {
+    NNetBuilder &n_prepare(int n_prepare) {
         config.n_prepare = n_prepare;
         return *this;
     }
 
-    NNetBuilder& n_conv_channels(int n_conv_channels) {
+    NNetBuilder &n_conv_channels(int n_conv_channels) {
         config.n_conv_channels = n_conv_channels;
         return *this;
     }
-
-    NNetBuilder& k(int k) {
-        config.k = k;
+    NNetBuilder &n_pos_dim(int n_pos_dim) {
+        config.n_pos_dim = n_pos_dim;
         return *this;
     }
 
-    NNetBuilder& v(int v) {
-        config.v = v;
-        return *this;
+    void add_choice(unsigned int n_choices, const string &name) {
+        decoder.push_back(DecoderStep(config, n_choices, name));
     }
 
-    void add_choice(unsigned int n_choices, const string& name) {
-        steps.push_back(NNetModule(config, n_choices, name));
-    }
-
-    NNetGuide* build() {
-        NNetGuide* guide = new NNetGuide(config, steps);
+    NNetGuide *build() {
+        NNetGuide *guide = new NNetGuide(config, decoder);
         return guide;
     }
 
    private:
     NNetConfig config;
-    vector<NNetModule> steps;
+    vector<DecoderStep> decoder;
 };
 
 extern "C" {
 
 guide_net_builder_t create_network() {
-    NNetBuilder* builder = new NNetBuilder();
-    builder->k(128).v(64).n_conv_channels(128).n_prepare(10).batch_norm_momentum(0.01);
+    NNetBuilder *builder = new NNetBuilder();
+    builder->n_conv_channels(128).n_pos_dim(32).n_prepare(10).batch_norm_momentum(0.01);
     return builder;
 }
 
-void add_choice_to_net(guide_net_builder_t net, int n_choices, const char* name) {
-    NNetBuilder* builder = static_cast<NNetBuilder*>(net);
+void add_choice_to_net(guide_net_builder_t net, int n_choices, const char *name) {
+    NNetBuilder *builder = static_cast<NNetBuilder *>(net);
     builder->add_choice(n_choices, name);
 }
 
 guide_net_t build_network(guide_net_builder_t net) {
-    NNetBuilder* builder = static_cast<NNetBuilder*>(net);
+    NNetBuilder *builder = static_cast<NNetBuilder *>(net);
     return builder->build();
 }
 
@@ -450,15 +508,15 @@ trail_net_t create_network_trail(
     guide_net_t c_guide,
     unsigned int input_width,
     unsigned int input_height,
-    unsigned int* input_pixels,
+    unsigned int *input_pixels,
     unsigned int output_width,
     unsigned int output_height,
-    unsigned int* output_pixels) {
-    NNetGuide* guide = static_cast<NNetGuide*>(c_guide);
+    unsigned int *output_pixels) {
+    NNetGuide *guide = static_cast<NNetGuide *>(c_guide);
 
     // copy the input data by creating a 3d representation (each color has a depth)
     int input_size = (input_width + 2) * (input_height + 2);
-    float* input_data = (float*)calloc(10 * input_size, sizeof(float));
+    float *input_data = (float *)calloc(10 * input_size, sizeof(float));
     for (int y = 0; y < input_height; y++) {
         for (int x = 0; x < input_width; x++) {
             int input_idx = y * input_width + x;
@@ -472,7 +530,7 @@ trail_net_t create_network_trail(
 
     // copy the input data by creating a 3d representation (each color has a depth)
     int output_size = (output_width + 2) * (output_height + 2);
-    float* output_data = (float*)calloc(10 * output_size, sizeof(float));
+    float *output_data = (float *)calloc(10 * output_size, sizeof(float));
     for (int y = 0; y < output_height; y++) {
         for (int x = 0; x < output_width; x++) {
             int output_idx = y * output_width + x;
@@ -486,30 +544,36 @@ trail_net_t create_network_trail(
 
     Tensor input_tensor = torch::from_blob(
         input_data,
-        {1, 1, 10, input_height + 2, input_width + 2},
-        [&](void* data) { free(data); },
-        TensorOptions().dtype(kFloat));
+        {10, input_height + 2, input_width + 2},
+        [&](void *data) { free(data); },
+        TensorOptions().dtype(kFloat)).cuda();
     Tensor output_tensor = torch::from_blob(
         output_data,
-        {1, 1, 10, output_height + 2, output_width + 2},
-        [&](void* data) { free(data); },
-        TensorOptions().dtype(kFloat));
+        {10, output_height + 2, output_width + 2},
+        [&](void *data) { free(data); },
+        TensorOptions().dtype(kFloat)).cuda();
     return new NNetTrail(guide, input_tensor, output_tensor);
 }
 
-void next_network_choice(trail_net_t c_trail, double* p) {
-    NNetTrail* trail = static_cast<NNetTrail*>(c_trail);
+void next_network_choice(trail_net_t c_trail, double *p) {
+    NNetTrail *trail = static_cast<NNetTrail *>(c_trail);
     trail->next_choice(p);
 }
 
+trail_net_t skip_network_choice(trail_net_t c_trail) {
+    NNetTrail *trail = static_cast<NNetTrail *>(c_trail);
+    trail->skip_choice();
+    return trail;
+}
+
 trail_net_t observe_network_choice(trail_net_t c_trail, int choice) {
-    NNetTrail* trail = static_cast<NNetTrail*>(c_trail);
+    NNetTrail *trail = static_cast<NNetTrail *>(c_trail);
     trail->observe(choice);
     return trail;
 }
 
 float complete_trail(trail_net_t c_trail, bool success) {
-    NNetTrail* trail = static_cast<NNetTrail*>(c_trail);
+    NNetTrail *trail = static_cast<NNetTrail *>(c_trail);
     float result = 0.0f;
     if (success) {
         result = trail->train();

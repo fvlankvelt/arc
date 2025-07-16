@@ -342,40 +342,40 @@ filter_call_t* sample_filter(task_t* task, const graph_t* graph, trail_t** p_tra
     call->filter = func;
     trail = observe_choice(trail, i_func);
 
-    const categorical_t* size_dist = next_choice(trail);
     if (func->size) {
+        const categorical_t* size_dist = next_choice(trail);
         int i_size = choose_from(size_dist, arg_vals.size);
         call->args.size = filter_argument_values.size[i_size];
         trail = observe_choice(trail, i_size);
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
-    const categorical_t* degree_dist = next_choice(trail);
     if (func->degree) {
+        const categorical_t* degree_dist = next_choice(trail);
         int i_degree = choose_from(degree_dist, arg_vals.degree);
         call->args.degree = filter_argument_values.degree[i_degree];
         trail = observe_choice(trail, i_degree);
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
-    const categorical_t* exclude_dist = next_choice(trail);
     if (func->exclude) {
+        const categorical_t* exclude_dist = next_choice(trail);
         int i_exclude = choose(exclude_dist);
         call->args.exclude = filter_argument_values.exclude[i_exclude];
         trail = observe_choice(trail, i_exclude);
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
-    const categorical_t* color_dist = next_choice(trail);
     if (func->color) {
+        const categorical_t* color_dist = next_choice(trail);
         int i_color = choose(color_dist);
         call->args.color = filter_argument_values.color[i_color];
         trail = observe_choice(trail, i_color);
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
     if (!filter_matches(graph, call)) {
@@ -402,8 +402,8 @@ trail_t* observe_filter(trail_t* trail, const filter_call_t* call) {
     }
     assert(func);
 
-    /* const categorical_t* size_dist = */ next_choice(trail);
     if (func->size) {
+        /* const categorical_t* size_dist = */ next_choice(trail);
         for (int i_size = 0; i_size < filter_argument_values.n_size; i_size++) {
             if (call->args.size == filter_argument_values.size[i_size]) {
                 trail = observe_choice(trail, i_size);
@@ -411,11 +411,11 @@ trail_t* observe_filter(trail_t* trail, const filter_call_t* call) {
             }
         }
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
-    /* const categorical_t* degree_dist = */ next_choice(trail);
     if (func->degree) {
+        /* const categorical_t* degree_dist = */ next_choice(trail);
         for (int i_degree = 0; i_degree < filter_argument_values.n_degree; i_degree++) {
             if (call->args.degree == filter_argument_values.degree[i_degree]) {
                 trail = observe_choice(trail, i_degree);
@@ -423,11 +423,11 @@ trail_t* observe_filter(trail_t* trail, const filter_call_t* call) {
             }
         }
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
-    /* const categorical_t* exclude_dist = */ next_choice(trail);
     if (func->exclude) {
+        /* const categorical_t* exclude_dist = */ next_choice(trail);
         for (int i_exclude = 0; i_exclude < filter_argument_values.n_exclude; i_exclude++) {
             if (call->args.exclude == filter_argument_values.exclude[i_exclude]) {
                 trail = observe_choice(trail, i_exclude);
@@ -435,11 +435,11 @@ trail_t* observe_filter(trail_t* trail, const filter_call_t* call) {
             }
         }
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
-    /* const categorical_t* color_dist = */ next_choice(trail);
     if (func->color) {
+        /* const categorical_t* color_dist = */ next_choice(trail);
         for (int i_color = 0; i_color < filter_argument_values.n_color; i_color++) {
             if (call->args.color == filter_argument_values.color[i_color]) {
                 trail = observe_choice(trail, i_color);
@@ -447,7 +447,7 @@ trail_t* observe_filter(trail_t* trail, const filter_call_t* call) {
             }
         }
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
     return trail;

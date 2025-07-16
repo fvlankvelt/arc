@@ -106,6 +106,8 @@ trail_t* backtrack(trail_t* trail);
 
 const categorical_t* next_choice(trail_t* trail);
 
+trail_t* skip_choice(trail_t* trail);
+
 int choose(const categorical_t* dist);
 
 int choose_from(const categorical_t* dist, long valid_flags);

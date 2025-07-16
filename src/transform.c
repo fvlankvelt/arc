@@ -674,8 +674,8 @@ transform_call_t* sample_transform(
     call->transform = func;
     trail = observe_choice(trail, i_func);
 
-    const categorical_t* color_dist = next_choice(trail);
     if (call->transform->color) {
+        const categorical_t* color_dist = next_choice(trail);
         int i_color = choose(color_dist);
         trail = observe_choice(trail, i_color);
         if (i_color == 0) {
@@ -689,12 +689,12 @@ transform_call_t* sample_transform(
             call->arguments.color = transform_argument_values.color[i_color];
         }
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
         trail = observe_binding(trail, NULL);
     }
 
-    const categorical_t* direction_dist = next_choice(trail);
     if (call->transform->direction) {
+        const categorical_t* direction_dist = next_choice(trail);
         int i_direction = choose(direction_dist);
         trail = observe_choice(trail, i_direction);
         if (i_direction == 0) {
@@ -708,26 +708,26 @@ transform_call_t* sample_transform(
             call->arguments.direction = transform_argument_values.direction[i_direction];
         }
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
         trail = observe_binding(trail, NULL);
     }
 
-    const categorical_t* rotation_dist = next_choice(trail);
     if (call->transform->rotation_dir) {
+        const categorical_t* rotation_dist = next_choice(trail);
         int i_rotation = choose(rotation_dist);
         trail = observe_choice(trail, i_rotation);
         call->arguments.rotation_dir = transform_argument_values.rotation[i_rotation];
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
-    const categorical_t* overlap_dist = next_choice(trail);
     if (call->transform->overlap) {
+        const categorical_t* overlap_dist = next_choice(trail);
         int i_overlap = choose(overlap_dist);
         trail = observe_choice(trail, i_overlap);
         call->arguments.overlap = transform_argument_values.overlap[i_overlap];
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
     *p_trail = trail;
@@ -759,11 +759,12 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
         }
     }
 
-    /* const categorical_t* color_dist = */ next_choice(trail);
     if (call->dynamic.color) {
+        /* const categorical_t* color_dist = */ next_choice(trail);
         trail = observe_choice(trail, 0);
         trail = observe_binding(trail, call->dynamic.color);
     } else if (call->transform->color) {
+        /* const categorical_t* color_dist = */ next_choice(trail);
         for (int i_color = 1; i_color < transform_argument_values.n_color; i_color++) {
             if (call->arguments.color == transform_argument_values.color[i_color]) {
                 trail = observe_choice(trail, i_color);
@@ -772,15 +773,16 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
         }
         trail = observe_binding(trail, NULL);
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
         trail = observe_binding(trail, NULL);
     }
 
-    /* const categorical_t* direction_dist = */ next_choice(trail);
     if (call->dynamic.direction) {
+        /* const categorical_t* direction_dist = */ next_choice(trail);
         trail = observe_choice(trail, 0);
         trail = observe_binding(trail, call->dynamic.direction);
     } else if (call->transform->direction) {
+        /* const categorical_t* direction_dist = */ next_choice(trail);
         for (int i_direction = 1; i_direction < transform_argument_values.n_direction;
              i_direction++) {
             if (call->arguments.direction == transform_argument_values.direction[i_direction]) {
@@ -790,12 +792,12 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
         }
         trail = observe_binding(trail, NULL);
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
         trail = observe_binding(trail, NULL);
     }
 
-    /* const categorical_t* rotation_dist = */ next_choice(trail);
     if (call->transform->rotation_dir) {
+        /* const categorical_t* rotation_dist = */ next_choice(trail);
         for (int i_rotation = 0; i_rotation < transform_argument_values.n_rotation;
              i_rotation++) {
             if (call->arguments.rotation_dir ==
@@ -805,11 +807,11 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
             }
         }
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
-    /* const categorical_t* overlap_dist = */ next_choice(trail);
     if (call->transform->overlap) {
+        /* const categorical_t* overlap_dist = */ next_choice(trail);
         for (int i_overlap = 0; i_overlap < transform_argument_values.n_overlap; i_overlap++) {
             if (call->arguments.overlap == transform_argument_values.overlap[i_overlap]) {
                 trail = observe_choice(trail, i_overlap);
@@ -817,7 +819,7 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
             }
         }
     } else {
-        trail = observe_choice(trail, -1);
+        trail = skip_choice(trail);
     }
 
     return trail;

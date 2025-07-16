@@ -25,6 +25,7 @@ trail_net_t create_network_trail(
   unsigned int * output_pixels
 );
 
+trail_net_t skip_network_choice(trail_net_t c_trail);
 void next_network_choice(trail_net_t trail, double * p);
 trail_net_t observe_network_choice(trail_net_t trail, int choice);
 float complete_trail(trail_net_t trail, bool success);

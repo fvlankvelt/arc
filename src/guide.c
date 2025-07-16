@@ -188,14 +188,28 @@ const categorical_t* next_choice(trail_t* trail) {
     return dist;
 }
 
+trail_t * skip_choice(trail_t * trail) {
+    trail->cursor = trail->cursor->next;
+    if (trail->cursor) {
+        trail->dist.size = trail->cursor->n_choices;
+    } else {
+        trail->dist.size = 0;
+    }
+
+    skip_network_choice(trail->_nnet_trail);
+    return trail;
+}
+
 int choose(const categorical_t* dist) {
     double x = genRand(dist->rnd);
     for (int i = 0; i < dist->size; i++) {
         if (x < dist->p[i]) {
+            // printf("choose %d/%d\n", i, dist->size);
             return i;
         }
         x -= dist->p[i];
     }
+    // printf("choose %d/%d\n", dist->size - 1, dist->size);
     return dist->size - 1;
 }
 
