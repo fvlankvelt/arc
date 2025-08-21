@@ -58,126 +58,6 @@ struct DecoderState {
     Tensor loss;
 };
 
-/*
-struct EncoderState {
-    Tensor input;
-    Tensor output;
-};
-*/
-
-/**
- * evolve image in a color-permutation symmetric way
- * The kernels used are shared across colors
- */
-/*
-struct NNetImageStepImpl : nn::Module {
-    NNetImageStepImpl(const NNetConfig& config)
-        : config(config),
-          batchnorm(register_module(
-              "batchnorm",
-              nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
-                                  .momentum(config.batch_norm_momentum)))),
-          conv(register_module(
-              "conv",
-              nn::Conv3d(
-                  nn::Conv3dOptions(config.n_conv_channels, config.n_conv_channels, {1, 3, 3})
-                      .padding({0, 1, 1})))),
-          batchnorm_color(register_module(
-              "batchnorm_color",
-              nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
-                                  .momentum(config.batch_norm_momentum)))),
-          conv_color(register_module(
-              "conv_color",
-              nn::Conv3d(nn::Conv3dOptions(
-                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
-          batchnorm_horizontal(register_module(
-              "batchnorm_horizontal",
-              nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
-                                  .momentum(config.batch_norm_momentum)))),
-          conv_horizontal(register_module(
-              "conv_horizontal",
-              nn::Conv3d(nn::Conv3dOptions(
-                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
-          batchnorm_vertical(register_module(
-              "batchnorm_vertical",
-              nn::BatchNorm3d(nn::BatchNormOptions(config.n_conv_channels)
-                                  .momentum(config.batch_norm_momentum)))),
-          conv_vertical(register_module(
-              "conv_vertical",
-              nn::Conv3d(nn::Conv3dOptions(
-                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))),
-          conv_peer(register_module(
-              "conv_peer",
-              nn::Conv3d(nn::Conv3dOptions(
-                  config.n_conv_channels, config.n_conv_channels, {1, 1, 1})))) {}
-
-    Tensor forward(const Tensor& input) {
-        auto input_sizes = input.sizes();
-        int input_height = input_sizes.at(3);
-        int input_width = input_sizes.at(4);
-
-        Tensor input_state = conv->forward(torch::relu(batchnorm->forward(input)));
-
-        // compute the max value per (channel, x, y) over all colors
-        // add affine transform back from the original
-        auto project_color =
-            input_state +
-            conv_color
-                ->forward(
-                    torch::relu(batchnorm_color->forward(max_pool3d(input_state, {10, 1, 1}))))
-                .expand({1, config.n_conv_channels, 10, input_height, input_width});
-
-        // compute max value per (channel, color, y) over width of image
-        // add affine transform back to the original
-        auto project_horizontal =
-            project_color +
-            conv_horizontal
-                ->forward(torch::relu(batchnorm_horizontal->forward(
-                    max_pool3d(project_color, {1, 1, input_width}))))
-                .expand({1, config.n_conv_channels, 10, input_height, input_width});
-
-        // compute max value per (channel, color, x) over height of image
-        // add affine transform back to the original
-        auto project_vertical =
-            project_horizontal +
-            conv_vertical
-                ->forward(torch::relu(batchnorm_vertical->forward(
-                    max_pool3d(project_horizontal, {1, input_height, 1}))))
-                .expand({1, config.n_conv_channels, 10, input_height, input_width});
-
-        return project_vertical;
-    }
-
-    Tensor merge(const Tensor& input, const Tensor& peer) {
-        auto peer_sizes = peer.sizes();
-        int peer_height = peer_sizes.at(3);
-        int peer_width = peer_sizes.at(4);
-        auto channels =
-            conv_peer->forward(torch::relu(max_pool3d(peer, {10, peer_height, peer_width})));
-
-        auto input_sizes = input.sizes();
-        int input_height = input_sizes.at(3);
-        int input_width = input_sizes.at(4);
-        return input +
-               channels.expand({1, config.n_conv_channels, 10, input_height, input_width});
-    }
-
-   private:
-    NNetConfig config;
-    nn::BatchNorm3d batchnorm;
-    nn::Conv3d conv;
-    nn::BatchNorm3d batchnorm_color;
-    nn::Conv3d conv_color;
-    nn::BatchNorm3d batchnorm_horizontal;
-    nn::Conv3d conv_horizontal;
-    nn::BatchNorm3d batchnorm_vertical;
-    nn::Conv3d conv_vertical;
-    nn::Conv3d conv_peer;
-};
-
-TORCH_MODULE(NNetImageStep);
-*/
-
 /**
  * Embed input & output images
  * Input, output are 2D images with each color in a separate "feature"
@@ -351,7 +231,7 @@ class NNetGuide : nn::Module {
           encoder_steps(),
           decoder_steps(decoder),
           optimizer(
-              std::vector<optim::OptimizerParamGroup>(), optim::AdamWOptions().amsgrad(true)),
+              std::vector<optim::OptimizerParamGroup>(), optim::AdamWOptions(1e-5).amsgrad(true)),
           scheduler(optimizer, 10000, 0.5),
           minibatch_size(0),
           loss(torch::zeros({1}, TensorOptions().requires_grad(true)).cuda()) {
@@ -439,7 +319,7 @@ class NNetTrail {
 
     float train() {
         double loss_value = state.loss.item().toDouble();
-        // cout << "loss: " << loss_value[0] << endl;
+        // cout << "loss: " << loss_value << endl;
         guide->train(state.loss);
         return loss_value;
     }

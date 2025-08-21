@@ -3,7 +3,7 @@ CCFLAGS=-Og -ggdb -std=gnu17 -Wall -Wextra
 #CCFLAGS=-ggdb -std=gnu17 -Wall -Wextra
 CXXFLAGS=-Og -ggdb  -DUSE_C10D_GLOO -DUSE_C10D_NCCL -DUSE_DISTRIBUTED -DUSE_RPC -DUSE_TENSORPIPE -isystem /opt/libtorch/include -isystem /opt/libtorch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -std=gnu++17 -D_GLIBCXX_USE_CXX11_ABI=1
 
-LINKER=/usr/bin/c++ -rdynamic -L/lib/intel64  -L/lib/intel64_win  -L/lib/win-x64  -Wl,-rpath,/lib/intel64:/lib/intel64_win:/lib/win-x64:/opt/libtorch/lib:/usr/local/cuda/lib64 /opt/libtorch/lib/libtorch.so /opt/libtorch/lib/libc10.so /opt/libtorch/lib/libkineto.a /usr/local/cuda/lib64/libnvrtc.so /opt/libtorch/lib/libc10_cuda.so -Wl,--no-as-needed,"/opt/libtorch/lib/libtorch_cpu.so" -Wl,--as-needed -Wl,--no-as-needed,"/opt/libtorch/lib/libtorch_cuda.so" -Wl,--as-needed /opt/libtorch/lib/libc10_cuda.so /opt/libtorch/lib/libc10.so /usr/local/cuda/lib64/libcudart.so -Wl,--no-as-needed,"/opt/libtorch/lib/libtorch.so" -Wl,--as-needed /usr/local/cuda/lib64/libnvToolsExt.so
+LINKER=/usr/bin/c++ -rdynamic -L/lib/intel64  -L/lib/intel64_win  -L/lib/win-x64  -Wl,-rpath,/lib/intel64:/lib/intel64_win:/lib/win-x64:/opt/libtorch/lib:/usr/local/cuda/lib64 /opt/libtorch/lib/libtorch.so /opt/libtorch/lib/libc10.so /opt/libtorch/lib/libkineto.a /usr/local/cuda/lib64/libnvrtc.so /opt/libtorch/lib/libc10_cuda.so -Wl,--no-as-needed,"/opt/libtorch/lib/libtorch_cpu.so" -Wl,--as-needed -Wl,--no-as-needed,"/opt/libtorch/lib/libtorch_cuda.so" -Wl,--as-needed /opt/libtorch/lib/libc10_cuda.so /opt/libtorch/lib/libc10.so /usr/local/cuda/lib64/libcudart.so -Wl,--no-as-needed,"/opt/libtorch/lib/libtorch.so"
 
 INC=-I./src
 SOURCEDIR := src
@@ -25,11 +25,9 @@ all: $(BINDIR)/arga $(BINDIR)/test
 arga: $(BINDIR)/arga
 	$(BINDIR)/arga
 
-run: $(BINDIR)/arga
-	for file in $(shell $(BINDIR)/arga); do 	\
-		echo $$file; 														\
-		time $(BINDIR)/arga $$file 2>& 1; 			\
-	done
+run: # $(BINDIR)/arga
+	hash=$(shell git rev-parse --short HEAD); \
+	$(BINDIR)/arga | tee analysis/$${hash}.csv
 
 test: $(BINDIR)/test
 	$(BINDIR)/test
