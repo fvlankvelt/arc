@@ -25,7 +25,7 @@ all: $(BINDIR)/arga $(BINDIR)/test
 arga: $(BINDIR)/arga
 	$(BINDIR)/arga
 
-run: # $(BINDIR)/arga
+run: $(BINDIR)/arga
 	hash=$(shell git rev-parse --short HEAD); \
 	$(BINDIR)/arga | tee analysis/$${hash}.csv
 

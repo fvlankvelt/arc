@@ -196,11 +196,9 @@ static inline subnode_block_t *new_subnode_block(graph_t *graph) {
 
 static inline bool add_subnode_to_block(
     graph_t *graph, subnode_block_t *block, subnode_t subnode, int *n_subnodes) {
-    int n_blocks = 1;
     subnode_block_t *last_block = block;
     while (last_block->next) {
         last_block = last_block->next;
-        n_blocks++;
     }
     if (*n_subnodes > 0 && (*n_subnodes % SUBNODE_BLOCK_SIZE) == 0) {
         last_block->next = new_subnode_block(graph);
