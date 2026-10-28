@@ -8,3 +8,12 @@ analysis/*.csv
 analysis/.ipynb_checkpoints
 analysis/venv
 img/*.pnm
+**/CMakeFiles/
+CMakeCache.txt
+**/*.cmake
+**/Makefile
+**/*.a
+detect_cuda*
+
+src/arc
+test/test
