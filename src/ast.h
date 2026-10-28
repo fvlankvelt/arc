@@ -220,6 +220,7 @@ typedef struct _expr
             bool boolean;
             unsigned char integer;
             type_t* type;
+            // primitive list is Nil - needs no value
         } primitive;
     } value;
 } expr_t;
@@ -237,6 +238,6 @@ typedef struct _expr
  * (eval <symbol> [<expression>])
  *  evaluates a
  */
-bool validate_expression(expr_t* expression);
+bool validate_expression(expr_t* expr);
 
 #endif //__AST_H__
