@@ -63,7 +63,7 @@ typedef enum _operation
     SWITCH,
 
     // constants (no lambdas)
-    // [Bool | Int]
+    // [Bool | Int | Nil | [Type]]
     PRIMITIVE,
     // a
     REFERENCE,

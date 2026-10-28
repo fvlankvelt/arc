@@ -63,6 +63,7 @@ bool validate_expression(expr_t* expression)
         {
             return false;
         }
+        break;
     case ADD:
     case SUB:
     case MUL:
@@ -86,13 +87,27 @@ bool validate_expression(expr_t* expression)
         break;
     case ELEM:
         {
-            if (expression->value.elem.list->type->kind != LIST_KIND
-                || expression->value.elem.empty->type != expression->type)
+            type_t* result_type = expression->type;
+            type_t* list_type = expression->value.elem.list->type;
+            if (list_type->kind != LIST_KIND || expression->value.elem.empty->type != result_type)
             {
                 return false;
             }
-            type_t* result_type = expression->type;
-            type_t* element_type = expression->value.elem.list->type->arguments.list.element_type;
+            type_t* element_type = list_type->arguments.list.element_type;
+            type_t* nonempty_type = expression->value.elem.nonempty->type;
+            if (nonempty_type->kind != FUNC_KIND
+                || nonempty_type->arguments.function.argument_type != element_type)
+            {
+                return false;
+            }
+            type_t * curried_type = nonempty_type->arguments.function.return_type;
+            if (curried_type->kind != FUNC_KIND
+                || curried_type->arguments.function.argument_type != list_type
+                || curried_type->arguments.function.return_type != result_type)
+            {
+                return false;
+            }
+            break;
         }
     case EITHER:
         if (expression->type->kind != EITHER_KIND
@@ -103,6 +118,7 @@ bool validate_expression(expr_t* expression)
         {
             return false;
         }
+            break;
     case SWITCH:
         {
             type_t* either = expression->value._switch.either->type;
@@ -116,6 +132,7 @@ bool validate_expression(expr_t* expression)
             {
                 return false;
             }
+            break;
         }
     case PRIMITIVE:
     case REFERENCE:

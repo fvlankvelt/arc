@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "test.h"
 #include "ast.h"
@@ -20,6 +19,115 @@ BEGIN_TEST(test_primitive)
             }
         };
         ASSERT(validate_expression(&expr), "Boolean primitive expression failed to validate");
+    }
+END_TEST()
+
+BEGIN_TEST(test_list)
+    {
+        type_t type_bool = {
+            .kind = BOOL_KIND,
+        };
+        type_t type_int = {
+            .kind = INT_KIND,
+        };
+        type_t type_list_bool = {
+            .kind = LIST_KIND,
+            .arguments = {
+                .list = {
+                    .element_type = &type_bool,
+                }
+            }
+        };
+        expr_t nil = {
+            .type = &type_list_bool,
+            .operation = PRIMITIVE,
+        };
+        expr_t entry = {
+            .type = &type_bool,
+            .operation = PRIMITIVE,
+            .value = {
+                .primitive = {
+                    .boolean = true,
+                }
+            }
+        };
+        expr_t list = {
+            .type = &type_list_bool,
+            .operation = CONS,
+            .value = {
+                .cons = {
+                    .head = &entry,
+                    .tail = &nil,
+                }
+            }
+        };
+        expr_t empty = {
+            .type = &type_int,
+            .operation = PRIMITIVE,
+            .value = {
+                .primitive = {
+                    .integer = 0,
+                }
+            }
+        };
+
+        type_t nonempty_curried_type = {
+            .kind = FUNC_KIND,
+            .arguments = {
+                .function = {
+                    .argument_type = &type_list_bool,
+                    .return_type = &type_int
+                }
+            }
+        };
+        expr_t nonempty_curried_body = {
+            .type = &type_int,
+            .operation = PRIMITIVE,
+            .value = {
+                .primitive = {
+                    .integer = 1,
+                }
+            }
+        };
+        expr_t nonempty_curried = {
+            .type = &nonempty_curried_type,
+            .operation = FUNC,
+            .value = {
+                .func = {
+                    .body = &nonempty_curried_body,
+                }
+            }
+        };
+        type_t nonempty_type = {
+            .kind = FUNC_KIND,
+            .arguments = {
+                .function = {
+                    .return_type = &nonempty_curried_type,
+                    .argument_type = &type_bool,
+                }
+            }
+        };
+        expr_t nonempty = {
+            .type = &nonempty_type,
+            .operation = FUNC,
+            .value = {
+                .func = {
+                    .body = &nonempty_curried,
+                }
+            }
+        };
+        expr_t elem = {
+            .type = &type_int,
+            .operation = ELEM,
+            .value = {
+                .elem = {
+                    .list = &list,
+                    .empty = &empty,
+                    .nonempty = &nonempty,
+                }
+            }
+        };
+        ASSERT(validate_expression(&elem), "list did not validate");
     }
 END_TEST()
 
@@ -278,5 +386,6 @@ END_TEST()
 
 DEFINE_SUITE(test_ast, {
              RUN_TEST(test_primitive);
+             RUN_TEST(test_list);
              RUN_TEST(test_switch);
              })
