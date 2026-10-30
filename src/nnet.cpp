@@ -22,7 +22,7 @@ using namespace std;
  * The transformer is initialized by a convolutional layer that takes the 10 colors as
  * different features.
  *
- * Color permutation symmmetry
+ * Color permutation symmetry
  *
  * Rotations (90-degrees and multiples) and reflections form the dihedral-4 group.  Since these
  * are also symmetries, they should be taken care of as this reduces parameter count
@@ -83,11 +83,11 @@ struct EmbeddingImpl : nn::Module {
         Tensor input_pos = embed_position(input); // 65536, 7, 7
         Tensor input_feat = conv_input->forward(input); // 128, 7, 7
         // cout << "pos: " << input_pos.sizes() << ", feat: " << input_feat.sizes() << endl;
-        Tensor input_flat = torch::flatten({torch::cat({input_pos, input_feat}, 0)}, 1);
+        Tensor input_flat = flatten({cat({input_pos, input_feat}, 0)}, 1);
         Tensor output_pos = embed_position(output);
         Tensor output_feat = conv_output->forward(output);
-        Tensor output_flat = torch::flatten({torch::cat({output_pos, output_feat}, 0)}, 1);
-        return torch::transpose(torch::cat({input_flat, output_flat}, 1), 0, 1);
+        Tensor output_flat = flatten({cat({output_pos, output_feat}, 0)}, 1);
+        return transpose(cat({input_flat, output_flat}, 1), 0, 1);
     }
 
    private:
@@ -103,7 +103,7 @@ struct EmbeddingImpl : nn::Module {
         Tensor input_hor_fourier = input_hor.outer(at::arange(config.n_pos_dim / 2));
         // (input_width, n_pos_dim)
         Tensor input_hor_emb =
-            torch::cat({input_hor_fourier.cos(), input_hor_fourier.sin()}, 1).cuda();
+            cat({input_hor_fourier.cos(), input_hor_fourier.sin()}, 1).cuda();
 
         // (input_height)
         Tensor input_ver = (at::arange(input_height) + 0.5f) * 2 * M_PI_2f32 / input_height;
@@ -111,11 +111,11 @@ struct EmbeddingImpl : nn::Module {
         Tensor input_ver_fourier = input_ver.outer(at::arange(config.n_pos_dim / 2));
         // (input_height, n_pos_dim)
         Tensor input_ver_emb =
-            torch::cat({input_ver_fourier.cos(), input_ver_fourier.sin()}, 1).cuda();
+            cat({input_ver_fourier.cos(), input_ver_fourier.sin()}, 1).cuda();
 
         // embedding is of size 4 * n_pos_dim^2
         // (4 * n_pos_dim^2, input_height, input_width)
-        return torch::flatten(torch::einsum("ik,jl->klij", {input_ver_emb, input_hor_emb}), 0, 1);
+        return flatten(einsum("ik,jl->klij", {input_ver_emb, input_hor_emb}), 0, 1);
     }
 
     NNetConfig config;
@@ -131,9 +131,9 @@ struct EncoderStepImpl : nn::Module {
           out_proj(register_module("out_proj", nn::Linear(config.size(), config.size()))) {}
 
     Tensor forward(const Tensor &state) {
-        auto proj = torch::chunk(torch::matmul(state, qkv), 3, 1);
+        auto proj = chunk(matmul(state, qkv), 3, 1);
         return out_proj->forward(
-            torch::scaled_dot_product_attention(proj[0], proj[1], proj[2]));
+            scaled_dot_product_attention(proj[0], proj[1], proj[2]));
     }
 
    private:
@@ -167,10 +167,10 @@ struct DecoderStepImpl : nn::Module {
     DecoderState forward(DecoderState &state) {
         // cout << "query: " << query.sizes() << ", key: " << state.keys.sizes() << ", values: " << state.values.sizes() << endl;
         auto self_query = self_project->forward(
-            torch::scaled_dot_product_attention(query, state.keys, state.values));
+            scaled_dot_product_attention(query, state.keys, state.values));
 
         Tensor dist_state = decode->forward(
-            torch::scaled_dot_product_attention(
+            scaled_dot_product_attention(
                 cross_query->forward(self_query),
                 cross_key->forward(state.context),
                 cross_value->forward(state.context)));
@@ -200,8 +200,8 @@ struct DecoderStepImpl : nn::Module {
         // cout << name << " => state.keys: " << state.keys.sizes() << ", key: " << key.sizes() << endl;
         return {
             state.context,
-            torch::cat({state.keys, key}),
-            torch::cat({state.values, value}),
+            cat({state.keys, key}),
+            cat({state.values, value}),
             state.dist_state,
             loss,
         };
@@ -209,7 +209,7 @@ struct DecoderStepImpl : nn::Module {
 
     NNetConfig config;
     std::string name;
-    torch::Tensor query;
+    Tensor query;
     nn::Sequential decode;
     nn::Sequential self_key;
     nn::Sequential self_value;
