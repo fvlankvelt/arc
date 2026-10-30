@@ -548,7 +548,7 @@ BEGIN_TEST(test_complex)
         // identity: [Type] -> [T: Type] -> [T: Type]
 
         type_t type_identity_reference = {
-            .kind = TYPE_REF_KIND,
+            .kind = TYPE_REFERENCE_KIND,
             .arguments = {
                 .reference = {
                     .index = 0
@@ -568,7 +568,7 @@ BEGIN_TEST(test_complex)
         // (identity <int (identity fn arg)> <int (result of wrapped fn)>)
 
         type_t type_identity_argument = {
-            .kind = TYPE_ARG_KIND,
+            .kind = TYPE_KIND,
         };
         type_t type_identity_factory = {
             .kind = FUNC_KIND,
@@ -591,7 +591,7 @@ BEGIN_TEST(test_complex)
             }
         };
         expr_t integer_factory_argument = {
-            .type = &type_identity_argument,
+            .type = &type_identity_reference,
             .operation = PRIMITIVE,
             .name = "integer_factory_argument",
             .value = {

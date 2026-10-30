@@ -1,6 +1,5 @@
 #ifndef __AST_H__
 #define __AST_H__
-#include <math.h>
 
 /**
  * Abstract syntax tree that should be easy to generate with transformer-based neural network.
@@ -74,7 +73,7 @@ typedef enum _operation
  */
 typedef enum _kind
 {
-    BOOL_KIND, INT_KIND, TYPE_ARG_KIND, TYPE_REF_KIND, FUNC_KIND, LIST_KIND, PAIR_KIND, EITHER_KIND,
+    BOOL_KIND, INT_KIND, TYPE_KIND, TYPE_REFERENCE_KIND, FUNC_KIND, LIST_KIND, PAIR_KIND, EITHER_KIND,
 } kind_t;
 
 /**
@@ -225,19 +224,8 @@ typedef struct _expr
     } value;
 } expr_t;
 
-/**
- * (let <symbol> <expression value>
- *      <expression body>)
- *  assigns the value of <expression value> to <symbol> and
- *  returns <expression body> (which can refer to <symbol>)
- *
- * (lambda [<symbol>] <expression>)
- *  returns an anonymous function that can be evaluated with
- *  arguments that are bound to the list of symbols.
- *
- * (eval <symbol> [<expression>])
- *  evaluates a
- */
 bool validate_expression(expr_t* expr);
+
+expr_t * evaluate_expression(expr_t* expr);
 
 #endif //__AST_H__
