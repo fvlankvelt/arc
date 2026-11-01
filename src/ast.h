@@ -1,5 +1,6 @@
 #ifndef __AST_H__
 #define __AST_H__
+#include "mem.h"
 
 /**
  * Abstract syntax tree that should be easy to generate with transformer-based neural network.
@@ -112,7 +113,7 @@ typedef struct _type
         {
             int index;
         } reference;
-    } arguments;
+    };
 } type_t;
 
 typedef struct _expr
@@ -221,11 +222,51 @@ typedef struct _expr
             type_t* type;
             // primitive list is Nil - needs no value
         } primitive;
-    } value;
+    };
 } expr_t;
+
+typedef struct _value
+{
+    bool is_error;
+
+    union
+    {
+        expr_t * function;
+
+        struct
+        {
+            struct _value* head;
+            struct _value* tail;
+        } cons;
+
+        struct
+        {
+            struct _value* left;
+            struct _value* right;
+        } pair;
+
+        struct
+        {
+            bool is_left;
+            struct _value* value;
+        } either;
+
+        struct
+        {
+            bool boolean;
+            unsigned char integer;
+            type_t* type;
+        } primitive;
+
+        struct
+        {
+            const char * message;
+        } error;
+    };
+} value_t;
 
 bool validate_expression(expr_t* expr);
 
-expr_t * evaluate_expression(expr_t* expr);
+value_t * evaluate_expression(expr_t* expr, mem_block_t* block);
 
 #endif //__AST_H__

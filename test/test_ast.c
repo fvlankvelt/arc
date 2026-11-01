@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <stdio.h>
 
 #include "test.h"
@@ -12,10 +11,8 @@ BEGIN_TEST(test_primitive)
         expr_t expr = {
             .type = &type_bool,
             .operation = PRIMITIVE,
-            .value = {
-                .primitive = {
-                    .boolean = true,
-                }
+            .primitive = {
+                .boolean = true,
             }
         };
         ASSERT(validate_expression(&expr), "Boolean primitive expression failed to validate");
@@ -35,10 +32,8 @@ BEGIN_TEST(test_list)
         };
         type_t type_list_bool = {
             .kind = LIST_KIND,
-            .arguments = {
-                .list = {
-                    .element_type = &type_bool,
-                }
+            .list = {
+                .element_type = &type_bool,
             }
         };
         expr_t nil = {
@@ -48,86 +43,68 @@ BEGIN_TEST(test_list)
         expr_t entry = {
             .type = &type_bool,
             .operation = PRIMITIVE,
-            .value = {
-                .primitive = {
-                    .boolean = true,
-                }
+            .primitive = {
+                .boolean = true,
             }
         };
         expr_t list = {
             .type = &type_list_bool,
             .operation = CONS,
-            .value = {
-                .cons = {
-                    .head = &entry,
-                    .tail = &nil,
-                }
+            .cons = {
+                .head = &entry,
+                .tail = &nil,
             }
         };
         expr_t empty = {
             .type = &type_int,
             .operation = PRIMITIVE,
-            .value = {
-                .primitive = {
-                    .integer = 0,
-                }
+            .primitive = {
+                .integer = 0,
             }
         };
 
         type_t nonempty_curried_type = {
             .kind = FUNC_KIND,
-            .arguments = {
-                .function = {
-                    .argument_type = &type_list_bool,
-                    .return_type = &type_int
-                }
+            .function = {
+                .argument_type = &type_list_bool,
+                .return_type = &type_int
             }
         };
         expr_t nonempty_curried_body = {
             .type = &type_int,
             .operation = PRIMITIVE,
-            .value = {
-                .primitive = {
-                    .integer = 1,
-                }
+            .primitive = {
+                .integer = 1,
             }
         };
         expr_t nonempty_curried = {
             .type = &nonempty_curried_type,
             .operation = FUNC,
-            .value = {
-                .func = {
-                    .body = &nonempty_curried_body,
-                }
+            .func = {
+                .body = &nonempty_curried_body,
             }
         };
         type_t nonempty_type = {
             .kind = FUNC_KIND,
-            .arguments = {
-                .function = {
-                    .return_type = &nonempty_curried_type,
-                    .argument_type = &type_bool,
-                }
+            .function = {
+                .return_type = &nonempty_curried_type,
+                .argument_type = &type_bool,
             }
         };
         expr_t nonempty = {
             .type = &nonempty_type,
             .operation = FUNC,
-            .value = {
-                .func = {
-                    .body = &nonempty_curried,
-                }
+            .func = {
+                .body = &nonempty_curried,
             }
         };
         expr_t elem = {
             .type = &type_int,
             .operation = ELEM,
-            .value = {
-                .elem = {
-                    .list = &list,
-                    .empty = &empty,
-                    .nonempty = &nonempty,
-                }
+            .elem = {
+                .list = &list,
+                .empty = &empty,
+                .nonempty = &nonempty,
             }
         };
         ASSERT(validate_expression(&elem), "list did not validate");
@@ -142,39 +119,31 @@ BEGIN_TEST(test_bool)
         expr_t bool_true = {
             .type = &type_bool,
             .operation = PRIMITIVE,
-            .value = {
-                .primitive = {
-                    .boolean = true,
-                }
+            .primitive = {
+                .boolean = true,
             }
         };
         expr_t and = {
             .type = &type_bool,
             .operation = AND,
-            .value = {
-                .andor = {
-                    .left = &bool_true,
-                    .right = &bool_true,
-                }
+            .andor = {
+                .left = &bool_true,
+                .right = &bool_true,
             }
         };
         expr_t or = {
             .type = &type_bool,
             .operation = OR,
-            .value = {
-                .andor = {
-                    .left = &bool_true,
-                    .right = &and,
-                }
+            .andor = {
+                .left = &bool_true,
+                .right = &and,
             }
         };
         expr_t expr = {
             .type = &type_bool,
             .operation = NOT,
-            .value = {
-                .not = {
-                    .negated = &or,
-                }
+            .not = {
+                .negated = &or,
             }
         };
         ASSERT(validate_expression(&expr), "boolean expression did not validate");
@@ -192,20 +161,16 @@ BEGIN_TEST(test_eq)
         expr_t cst = {
             .type = &type_int,
             .operation = PRIMITIVE,
-            .value = {
-                .primitive = {
-                    .integer = 3,
-                }
+            .primitive = {
+                .integer = 3,
             }
         };
         expr_t eq = {
             .type = &type_bool,
             .operation = EQ,
-            .value = {
-                .eq = {
-                    .left = &cst,
-                    .right = &cst,
-                }
+            .eq = {
+                .left = &cst,
+                .right = &cst,
             }
         };
         ASSERT(validate_expression(&eq), "equality expression did not validate");
@@ -220,50 +185,40 @@ BEGIN_TEST(test_int)
         expr_t cst = {
             .type = &type_int,
             .operation = PRIMITIVE,
-            .value = {
-                .primitive = {
-                    .integer = 3,
-                }
+            .primitive = {
+                .integer = 3,
             }
         };
         expr_t add = {
             .type = &type_int,
             .operation = ADD,
-            .value = {
-                .arithmetic = {
-                    .left = &cst,
-                    .right = &cst,
-                }
+            .arithmetic = {
+                .left = &cst,
+                .right = &cst,
             }
         };
         expr_t sub = {
             .type = &type_int,
             .operation = SUB,
-            .value = {
-                .arithmetic = {
-                    .left = &add,
-                    .right = &cst,
-                }
+            .arithmetic = {
+                .left = &add,
+                .right = &cst,
             }
         };
         expr_t mul = {
             .type = &type_int,
             .operation = MUL,
-            .value = {
-                .arithmetic = {
-                    .left = &sub,
-                    .right = &cst,
-                }
+            .arithmetic = {
+                .left = &sub,
+                .right = &cst,
             }
         };
         expr_t div = {
             .type = &type_int,
             .operation = DIV,
-            .value = {
-                .arithmetic = {
-                    .left = &mul,
-                    .right = &cst,
-                }
+            .arithmetic = {
+                .left = &mul,
+                .right = &cst,
             }
         };
         ASSERT(validate_expression(&div), "arithmetic expression did not validate");
@@ -280,48 +235,38 @@ BEGIN_TEST(test_pair)
         };
         type_t type_pair = {
             .kind = PAIR_KIND,
-            .arguments = {
-                .pair = {
-                    .left_type = &type_bool,
-                    .right_type = &type_int,
-                }
+            .pair = {
+                .left_type = &type_bool,
+                .right_type = &type_int,
             }
         };
         expr_t b = {
             .type = &type_bool,
             .operation = PRIMITIVE,
-            .value = {
-                .primitive = {
-                    .boolean = true,
-                }
+            .primitive = {
+                .boolean = true,
             }
         };
         expr_t i = {
             .type = &type_int,
             .operation = PRIMITIVE,
-            .value = {
-                .primitive = {
-                    .integer = 3,
-                }
+            .primitive = {
+                .integer = 3,
             }
         };
         expr_t p = {
             .type = &type_pair,
             .operation = PAIR,
-            .value = {
-                .pair = {
-                    .left = &b,
-                    .right = &i
-                }
+            .pair = {
+                .left = &b,
+                .right = &i
             }
         };
         expr_t l = {
             .type = &type_bool,
             .operation = LEFT,
-            .value = {
-                .leftright = {
-                    .pair = &p
-                }
+            .leftright = {
+                .pair = &p
             }
         };
         ASSERT(validate_expression(&l), "pair expression did not validate");
@@ -338,102 +283,82 @@ BEGIN_TEST(test_either)
         };
         type_t type_either = {
             .kind = EITHER_KIND,
-            .arguments = {
-                .either = {
-                    .left_type = &type_bool,
-                    .right_type = &type_int,
-                }
+            .either = {
+                .left_type = &type_bool,
+                .right_type = &type_int,
             }
         };
         expr_t expr_bool = {
             .type = &type_bool,
             .operation = PRIMITIVE,
             .name = "expr_bool",
-            .value = {
-                .primitive = {
-                    .boolean = true,
-                }
+            .primitive = {
+                .boolean = true,
             }
         };
         expr_t either = {
             .type = &type_either,
             .operation = EITHER,
-            .value = {
-                .either = {
-                    .is_left = true,
-                    .value = &expr_bool,
-                }
+            .either = {
+                .is_left = true,
+                .value = &expr_bool,
             }
         };
 
         type_t type_bool_to_int = {
             .kind = FUNC_KIND,
-            .arguments = {
-                .function = {
-                    .return_type = &type_int,
-                    .argument_type = &type_bool,
-                }
+            .function = {
+                .return_type = &type_int,
+                .argument_type = &type_bool,
             }
         };
         expr_t map_bool_body = {
             .type = &type_int,
             .operation = PRIMITIVE,
             .name = "map_bool_body",
-            .value = {
-                .primitive = {
-                    .integer = 0,
-                }
+            .primitive = {
+                .integer = 0,
             }
         };
         expr_t map_bool = {
             .type = &type_bool_to_int,
             .operation = FUNC,
             .name = "map_bool",
-            .value = {
-                .func = {
-                    .body = &map_bool_body,
-                }
+            .func = {
+                .body = &map_bool_body,
             }
         };
         type_t type_int_to_int = {
             .kind = FUNC_KIND,
-            .arguments = {
-                .function = {
-                    .return_type = &type_int,
-                    .argument_type = &type_int,
-                }
+            .function = {
+                .return_type = &type_int,
+                .argument_type = &type_int,
             }
         };
         expr_t map_int_body = {
             .type = &type_int,
             .operation = REFERENCE,
             .name = "map_int_body",
-            .value = {
-                .reference = {
-                    .index = 0,
-                }
+            .reference = {
+                .index = 0,
             }
         };
         expr_t map_int = {
             .type = &type_int_to_int,
             .operation = FUNC,
             .name = "map_int",
-            .value = {
-                .func = {
-                    .body = &map_int_body,
-                }
+            .func = {
+                .body = &map_int_body,
             }
         };
 
         expr_t _switch = {
             .type = &type_int,
             .operation = SWITCH,
-            .value = {
-                ._switch = {
-                    .either = &either,
-                    .map_left = &map_bool,
-                    .map_right = &map_int,
-                }
+            ._switch = {
+                .either = &either,
+                .map_left = &map_bool,
+                .map_right = &map_int,
             }
         };
         ASSERT(validate_expression(&_switch), "switch expression did not validate");
@@ -456,92 +381,74 @@ BEGIN_TEST(test_complex)
         };
         type_t type_either = {
             .kind = EITHER_KIND,
-            .arguments = {
-                .either = {
-                    .left_type = &type_bool,
-                    .right_type = &type_int,
-                }
+            .either = {
+                .left_type = &type_bool,
+                .right_type = &type_int,
             }
         };
         type_t type_bool_to_int = {
             .kind = FUNC_KIND,
-            .arguments = {
-                .function = {
-                    .return_type = &type_int,
-                    .argument_type = &type_bool,
-                }
+            .function = {
+                .return_type = &type_int,
+                .argument_type = &type_bool,
             }
         };
         type_t type_int_to_int = {
             .kind = FUNC_KIND,
-            .arguments = {
-                .function = {
-                    .return_type = &type_int,
-                    .argument_type = &type_int,
-                }
+            .function = {
+                .return_type = &type_int,
+                .argument_type = &type_int,
             }
         };
         expr_t expr_bool = {
             .type = &type_bool,
             .operation = PRIMITIVE,
             .name = "expr_bool",
-            .value = {
-                .primitive = {
-                    .boolean = true,
-                }
+            .primitive = {
+                .boolean = true,
             }
         };
         expr_t expr_either = {
             .type = &type_either,
             .operation = EITHER,
             .name = "expr_either",
-            .value = {
-                .either = {
-                    .is_left = true,
-                    .value = &expr_bool,
-                }
+            .either = {
+                .is_left = true,
+                .value = &expr_bool,
             }
         };
         expr_t ref_argument = {
             .type = &type_bool,
             .operation = REFERENCE,
             .name = "ref_argument",
-            .value = {
-                .reference = {
-                    .index = 0
-                }
+            .reference = {
+                .index = 0
             }
         };
         expr_t constant_int = {
             .type = &type_int,
             .operation = PRIMITIVE,
             .name = "constant_int",
-            .value = {
-                .primitive = {
-                    .integer = 2,
-                }
+            .primitive = {
+                .integer = 2,
             }
         };
         expr_t map_bool_body = {
             .type = &type_int,
             .operation = IF,
             .name = "map_bool_body",
-            .value = {
-                ._if = {
-                    .predicate = &ref_argument,
-                    ._then = &constant_int,
-                    ._else = &constant_int,
-                }
+            ._if = {
+                .predicate = &ref_argument,
+                ._then = &constant_int,
+                ._else = &constant_int,
             }
         };
         expr_t map_bool = {
             .type = &type_bool_to_int,
             .operation = FUNC,
             .name = "map_bool",
-            .value = {
-                .func = {
-                    .body = &map_bool_body,
-                }
+            .func = {
+                .body = &map_bool_body,
             }
         };
 
@@ -549,19 +456,15 @@ BEGIN_TEST(test_complex)
 
         type_t type_identity_reference = {
             .kind = TYPE_REFERENCE_KIND,
-            .arguments = {
-                .reference = {
-                    .index = 0
-                }
+            .reference = {
+                .index = 0
             }
         };
         type_t type_identity_result = {
             .kind = FUNC_KIND,
-            .arguments = {
-                .function = {
-                    .return_type = &type_identity_reference,
-                    .argument_type = &type_identity_reference,
-                }
+            .function = {
+                .return_type = &type_identity_reference,
+                .argument_type = &type_identity_reference,
             }
         };
 
@@ -572,11 +475,9 @@ BEGIN_TEST(test_complex)
         };
         type_t type_identity_factory = {
             .kind = FUNC_KIND,
-            .arguments = {
-                .function = {
-                    .return_type = &type_identity_result,
-                    .argument_type = &type_identity_argument,
-                }
+            .function = {
+                .return_type = &type_identity_result,
+                .argument_type = &type_identity_argument,
             }
         };
 
@@ -584,31 +485,25 @@ BEGIN_TEST(test_complex)
             .type = &type_identity_factory,
             .operation = REFERENCE,
             .name = "integer_factory_ref",
-            .value = {
-                .reference = {
-                    .index = 0
-                }
+            .reference = {
+                .index = 0
             }
         };
         expr_t integer_factory_argument = {
             .type = &type_identity_reference,
             .operation = PRIMITIVE,
             .name = "integer_factory_argument",
-            .value = {
-                .primitive = {
-                    .type = &type_int,
-                }
+            .primitive = {
+                .type = &type_int,
             }
         };
         expr_t map_integer = {
             .type = &type_int_to_int,
             .operation = EVAL,
             .name = "map_integer",
-            .value = {
-                .eval = {
-                    .function = &integer_factory_ref,
-                    .argument = &integer_factory_argument,
-                }
+            .eval = {
+                .function = &integer_factory_ref,
+                .argument = &integer_factory_argument,
             }
         };
 
@@ -616,22 +511,18 @@ BEGIN_TEST(test_complex)
             .type = &type_int,
             .operation = SWITCH,
             .name = "switch",
-            .value = {
-                ._switch = {
-                    .either = &expr_either,
-                    .map_left = &map_bool,
-                    .map_right = &map_integer,
-                }
+            ._switch = {
+                .either = &expr_either,
+                .map_left = &map_bool,
+                .map_right = &map_integer,
             }
         };
 
         type_t type_integer_factory_ref_to_int = {
             .kind = FUNC_KIND,
-            .arguments = {
-                .function = {
-                    .return_type = &type_int,
-                    .argument_type = &type_identity_factory,
-                }
+            .function = {
+                .return_type = &type_int,
+                .argument_type = &type_identity_factory,
             }
         };
 
@@ -639,10 +530,8 @@ BEGIN_TEST(test_complex)
             .type = &type_integer_factory_ref_to_int,
             .operation = FUNC,
             .name = "main",
-            .value = {
-                .func = {
-                    .body = &switch_expr
-                }
+            .func = {
+                .body = &switch_expr
             }
         };
 
@@ -650,30 +539,24 @@ BEGIN_TEST(test_complex)
             .type = &type_identity_reference,
             .operation = REFERENCE,
             .name = "identity_result_body",
-            .value = {
-                .reference = {
-                    .index = 0
-                }
+            .reference = {
+                .index = 0
             }
         };
         expr_t identity_result = {
             .type = &type_identity_result,
             .operation = FUNC,
             .name = "identity_result",
-            .value = {
-                .func = {
-                    .body = &identity_result_body,
-                }
+            .func = {
+                .body = &identity_result_body,
             }
         };
         expr_t identity_factory = {
             .type = &type_identity_factory,
             .operation = FUNC,
             .name = "identity_factory",
-            .value = {
-                .func = {
-                    .body = &identity_result,
-                }
+            .func = {
+                .body = &identity_result,
             }
         };
 
@@ -681,11 +564,9 @@ BEGIN_TEST(test_complex)
             .type = &type_int,
             .operation = EVAL,
             .name = "final expression",
-            .value = {
-                .eval = {
-                    .function = &main,
-                    .argument = &identity_factory,
-                }
+            .eval = {
+                .function = &main,
+                .argument = &identity_factory,
             }
         };
 
