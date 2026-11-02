@@ -19,11 +19,11 @@ static inline mem_block_t * new_block(unsigned int n, unsigned int member_size) 
     if (member_size < sizeof(mem_item_t)) {
         member_size = sizeof(mem_item_t);
     }
-    mem_block_t * block = malloc(sizeof(mem_block_t) + n * member_size);
+    mem_block_t * block = (mem_block_t *) malloc(sizeof(mem_block_t) + n * member_size);
     block->next = NULL;
     block->_size = n;
     block->_member_size = member_size;
-    mem_item_t * cursor = ((void *) block) + sizeof(mem_block_t);
+    mem_item_t * cursor = (mem_item_t *) ((void *) block) + sizeof(mem_block_t);
     block->_available = cursor;
     for (unsigned int i = 0; i < n - 1; i++) {
         mem_item_t * next = (mem_item_t *) (((void *) cursor) + member_size);

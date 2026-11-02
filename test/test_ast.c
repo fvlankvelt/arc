@@ -142,7 +142,7 @@ BEGIN_TEST(test_bool)
         expr_t expr = {
             .type = &type_bool,
             .operation = NOT,
-            .not = {
+            ._not = {
                 .negated = &or,
             }
         };

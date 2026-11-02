@@ -1,6 +1,6 @@
 
 add_library(arclib
-        ast.c
+        ast.cpp
         binding.c
         filter.c
         guide.c

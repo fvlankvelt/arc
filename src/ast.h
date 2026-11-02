@@ -1,5 +1,10 @@
 #ifndef __AST_H__
 #define __AST_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "mem.h"
 
 /**
@@ -148,7 +153,7 @@ typedef struct _expr
         {
             // must be a bool expression
             struct _expr* negated;
-        } not;
+        } _not;
 
         struct
         {
@@ -228,10 +233,11 @@ typedef struct _expr
 typedef struct _value
 {
     bool is_error;
+    unsigned int ref_count;
 
     union
     {
-        expr_t * function;
+        const expr_t * function;
 
         struct
         {
@@ -268,5 +274,9 @@ typedef struct _value
 bool validate_expression(expr_t* expr);
 
 value_t * evaluate_expression(expr_t* expr, mem_block_t* block);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //__AST_H__
