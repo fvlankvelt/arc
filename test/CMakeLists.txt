@@ -12,6 +12,7 @@ target_sources(test PRIVATE
         test_io.c
         test_mem.c
         test_transform.c
+        test_interpreter.cpp
 )
 
 target_include_directories(test PRIVATE ../src)

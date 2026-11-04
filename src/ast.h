@@ -230,6 +230,13 @@ typedef struct _expr
     };
 } expr_t;
 
+typedef struct _stack {
+    unsigned int ref_count;
+    type_t * type;
+    struct _value * value;
+    struct _stack * next;
+} stack_t;
+
 typedef struct _value
 {
     bool is_error;
@@ -237,7 +244,11 @@ typedef struct _value
 
     union
     {
-        const expr_t * function;
+        // a closure value
+        struct {
+            const expr_t * function;
+            struct _stack * stack;
+        } closure;
 
         struct
         {

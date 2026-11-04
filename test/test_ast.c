@@ -489,8 +489,11 @@ BEGIN_TEST(test_complex)
                 .index = 0
             }
         };
+        type_t type_identity = {
+            .kind = TYPE_KIND,
+        };
         expr_t integer_factory_argument = {
-            .type = &type_identity_reference,
+            .type = &type_identity,
             .operation = PRIMITIVE,
             .name = "integer_factory_argument",
             .primitive = {

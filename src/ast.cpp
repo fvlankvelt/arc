@@ -28,14 +28,14 @@ bool arg_stack_has_index(arg_stack_t* stack, type_t* type, unsigned int index) {
     return arg_stack_has_index(stack->next, type, index);
 }
 
-type_t* find_type(type_stack_t* type_map, int index) {
-    if (!type_map) {
+type_t* find_type(const type_stack_t* type_stack, int index) {
+    if (!type_stack) {
         return nullptr;
     }
     if (!index) {
-        return type_map->type;
+        return type_stack->type;
     }
-    return find_type(type_map->next, index - 1);
+    return find_type(type_stack->next, index - 1);
 }
 
 bool eq_types(type_t* a, type_t* b, type_stack_t* type_map) {
@@ -107,7 +107,7 @@ bool _validate(expr_t* expr, arg_stack_t* arg_stack, type_stack_t* type_map) {
     case FUNC:
         {
             if (expr->type->kind != FUNC_KIND
-                || expr->func.body->type != expr->type->function.return_type) {
+                || !eq_types(expr->func.body->type, expr->type->function.return_type, type_map)) {
                 return false;
             }
             arg_stack_t frame = {
@@ -128,7 +128,7 @@ bool _validate(expr_t* expr, arg_stack_t* arg_stack, type_stack_t* type_map) {
             if (func_type->function.argument_type->kind == TYPE_KIND) {
                 // when the argument of the function is a type, substitute the argument
                 // that must be a primitive - there is no other way to reference types in an expression
-                if (expr->eval.argument->type->kind != TYPE_REFERENCE_KIND
+                if (expr->eval.argument->type->kind != TYPE_KIND
                     || expr->eval.argument->operation != PRIMITIVE) {
                     return false;
                 }
@@ -172,8 +172,8 @@ bool _validate(expr_t* expr, arg_stack_t* arg_stack, type_stack_t* type_map) {
         break;
     case IF:
         if (expr->_if.predicate->type->kind != BOOL_KIND
-            || expr->_if._then->type != expr->type
-            || expr->_if._else->type != expr->type
+            || !eq_types(expr->_if._then->type, expr->type, type_map)
+            || !eq_types(expr->_if._else->type, expr->type, type_map)
             || !_validate(expr->_if.predicate, arg_stack, type_map)
             || !_validate(expr->_if._then, arg_stack, type_map)
             || !_validate(expr->_if._else, arg_stack, type_map)) {
@@ -182,7 +182,7 @@ bool _validate(expr_t* expr, arg_stack_t* arg_stack, type_stack_t* type_map) {
         break;
     case EQ:
         if (expr->type->kind != BOOL_KIND
-            || expr->eq.left->type != expr->eq.right->type
+            || !eq_types(expr->eq.left->type, expr->eq.right->type, type_map)
             || !_validate(expr->eq.left, arg_stack, type_map)
             || !_validate(expr->eq.right, arg_stack, type_map)) {
             return false;
@@ -202,8 +202,8 @@ bool _validate(expr_t* expr, arg_stack_t* arg_stack, type_stack_t* type_map) {
         break;
     case CONS:
         if (expr->type->kind != LIST_KIND
-            || expr->cons.head->type != expr->type->list.element_type
-            || expr->cons.tail->type != expr->type
+            || !eq_types(expr->cons.head->type, expr->type->list.element_type, type_map)
+            || !eq_types(expr->cons.tail->type, expr->type, type_map)
             || !_validate(expr->cons.head, arg_stack, type_map)
             || !_validate(expr->cons.tail, arg_stack, type_map)) {
             return false;
@@ -213,19 +213,19 @@ bool _validate(expr_t* expr, arg_stack_t* arg_stack, type_stack_t* type_map) {
         {
             type_t* result_type = expr->type;
             type_t* list_type = expr->elem.list->type;
-            if (list_type->kind != LIST_KIND || expr->elem.empty->type != result_type) {
+            if (list_type->kind != LIST_KIND || !eq_types(expr->elem.empty->type, result_type, type_map)) {
                 return false;
             }
             type_t* element_type = list_type->list.element_type;
             type_t* nonempty_type = expr->elem.nonempty->type;
             if (nonempty_type->kind != FUNC_KIND
-                || nonempty_type->function.argument_type != element_type) {
+                || !eq_types(nonempty_type->function.argument_type, element_type, type_map)) {
                 return false;
             }
             type_t* curried_type = nonempty_type->function.return_type;
             if (curried_type->kind != FUNC_KIND
-                || curried_type->function.argument_type != list_type
-                || curried_type->function.return_type != result_type) {
+                || !eq_types(curried_type->function.argument_type, list_type, type_map)
+                || !eq_types(curried_type->function.return_type, result_type, type_map)) {
                 return false;
             }
             if (!_validate(expr->elem.list, arg_stack, type_map)
@@ -237,21 +237,21 @@ bool _validate(expr_t* expr, arg_stack_t* arg_stack, type_stack_t* type_map) {
         }
     case PAIR:
         if (expr->type->kind != PAIR_KIND
-            || expr->pair.left->type != expr->type->pair.left_type
-            || expr->pair.right->type != expr->type->pair.right_type
+            || !eq_types(expr->pair.left->type, expr->type->pair.left_type, type_map)
+            || !eq_types(expr->pair.right->type, expr->type->pair.right_type, type_map)
             || !_validate(expr->pair.left, arg_stack, type_map)
             || !_validate(expr->pair.right, arg_stack, type_map)) {
             return false;
         }
         break;
     case LEFT:
-        if (expr->type != expr->leftright.pair->type->pair.left_type
+        if (!eq_types(expr->type, expr->leftright.pair->type->pair.left_type, type_map)
             || !_validate(expr->leftright.pair, arg_stack, type_map)) {
             return false;
         }
         break;
     case RIGHT:
-        if (expr->type != expr->leftright.pair->type->pair.right_type
+        if (!eq_types(expr->type, expr->leftright.pair->type->pair.right_type, type_map)
             || !_validate(expr->leftright.pair, arg_stack, type_map)) {
             return false;
         }
@@ -259,9 +259,9 @@ bool _validate(expr_t* expr, arg_stack_t* arg_stack, type_stack_t* type_map) {
     case EITHER:
         if (expr->type->kind != EITHER_KIND
             || (expr->either.is_left
-                && expr->either.value->type != expr->type->either.left_type)
+                && !eq_types(expr->either.value->type, expr->type->either.left_type, type_map))
             || (!expr->either.is_left
-                && expr->either.value->type != expr->type->either.right_type)
+                && !eq_types(expr->either.value->type, expr->type->either.right_type, type_map))
             || !_validate(expr->either.value, arg_stack, type_map)) {
             return false;
         }
@@ -272,10 +272,10 @@ bool _validate(expr_t* expr, arg_stack_t* arg_stack, type_stack_t* type_map) {
             type_t* left_type = expr->_switch.map_left->type;
             type_t* right_type = expr->_switch.map_right->type;
             if (left_type->kind != FUNC_KIND || right_type->kind != FUNC_KIND
-                || left_type->function.return_type != expr->type
-                || right_type->function.return_type != expr->type
-                || left_type->function.argument_type != either->either.left_type
-                || right_type->function.argument_type != either->either.right_type) {
+                || !eq_types(left_type->function.return_type, expr->type, type_map)
+                || !eq_types(right_type->function.return_type, expr->type, type_map)
+                || !eq_types(left_type->function.argument_type, either->either.left_type, type_map)
+                || !eq_types(right_type->function.argument_type, either->either.right_type, type_map)) {
                 return false;
             }
             if (!_validate(expr->_switch.either, arg_stack, type_map)
@@ -299,49 +299,36 @@ bool validate_expression(expr_t* expr) {
     return _validate(expr, nullptr, nullptr);
 }
 
-// helper for memory management of values.
-class Value {
+class Arena {
 public:
-    Value(const type_t* type, mem_block_t* block) : type(type), block(block) {
-        value = static_cast<value_t*>(new_item(block));
+    Arena(mem_block_t* value_block)
+        : value_block(value_block),
+          stack_block(new_block(256, sizeof(stack_t))) {
+    }
+
+    value_t* new_value() {
+        value_t* value = static_cast<value_t*>(new_item(value_block));
         *value = (value_t){
             .is_error = false,
             .ref_count = 1
         };
-    }
-
-    Value(const type_t* type, value_t* value, mem_block_t * block) : type(type), block(block), value(value) {
-        value->ref_count++;
-    }
-
-    Value(const Value& other) : type(other.type), block(other.block), value(other.value) {
-        value->ref_count++;
-    }
-
-    ~Value() {
-        free_value(type, value);
-    }
-
-    value_t* get() {
-        value->ref_count++;
         return value;
     }
 
-    void set(value_t* new_value) {
-        free_value(type, value);
-        value = new_value;
-        value->ref_count++;
+    stack_t* new_stack(type_t* type, value_t* value, stack_t* next) {
+        stack_t* stack = static_cast<stack_t*>(new_item(stack_block));
+        *stack = (stack_t){
+            .ref_count = 1,
+            .type = type,
+            .value = value,
+            .next = next
+        };
+        if (next) {
+            next->ref_count++;
+        }
+        return stack;
     }
 
-    value_t* unsafe() {
-        return value;
-    }
-
-    value_t* operator->() {
-        return value;
-    }
-
-private:
     void free_value(const type_t* type, value_t* value) {
         if (!value) {
             return;
@@ -354,6 +341,9 @@ private:
             switch (type->kind) {
             case BOOL_KIND:
             case INT_KIND:
+                break;
+            case FUNC_KIND:
+                free_stack(value->closure.stack);
                 break;
             case LIST_KIND:
                 free_value(type->list.element_type, value->cons.head);
@@ -370,50 +360,148 @@ private:
                 break;
             }
         }
-        free_item(block, value);
+        free_item(value_block, value);
     }
 
-    const type_t* type;
-    mem_block_t* block;
+    void free_stack(stack_t* stack) {
+        if (!stack) {
+            return;
+        }
+        stack->ref_count--;
+        if (stack->ref_count > 0) {
+            return;
+        }
+        free_stack(stack->next);
+        free_value(stack->type, stack->value);
+        free_item(stack_block, stack);
+    }
+
+private:
+    mem_block_t* value_block;
+    mem_block_t* stack_block;
+};
+
+// helper for memory management of values.
+class Value {
+public:
+    Value(type_t* type, Arena& arena) : type(type), arena(arena) {
+        value = arena.new_value();
+        *value = (value_t){
+            .is_error = false,
+            .ref_count = 1
+        };
+    }
+
+    Value(type_t* type, value_t* value, Arena& arena) :
+        type(type), arena(arena), value(value) {
+        value->ref_count++;
+    }
+
+    Value(const Value& other) :
+        type(other.type), arena(other.arena), value(other.value) {
+        value->ref_count++;
+    }
+
+    ~Value() {
+        arena.free_value(type, value);
+    }
+
+    type_t* get_type() const {
+        return type;
+    }
+
+    value_t* get() {
+        value->ref_count++;
+        return value;
+    }
+
+    void set(value_t* new_value) {
+        arena.free_value(type, value);
+        value = new_value;
+        value->ref_count++;
+    }
+
+    value_t* unsafe() {
+        return value;
+    }
+
+    value_t* operator->() {
+        return value;
+    }
+
+private:
+    type_t* type;
     value_t* value;
+    Arena& arena;
+};
+
+class Stack {
+public:
+    Stack(stack_t* stack, Arena& arena) : stack(stack), arena(arena) {
+    }
+
+    ~Stack() {
+        arena.free_stack(stack);
+    }
+
+    stack_t* unsafe() {
+        return stack;
+    }
+
+    stack_t* operator->() {
+        return stack;
+    }
+
+private:
+    stack_t* stack;
+    Arena& arena;
 };
 
 /**
  * A lambda pushes its argument on the stack in a stack frame.
- * When
  */
-typedef struct _eval_stack {
-    const type_t* type;
-    Value& value;
-    struct _eval_stack* next;
-} eval_stack_t;
-
-Value find_eval_stack(eval_stack_t* stack, const type_t* type, unsigned int index, mem_block_t* block) {
+Value find_eval_stack(stack_t* stack, type_t* type, unsigned int index, Arena& arena) {
     if (!stack) {
         // shouldn't occur, right?
-        Value result(type, block);
+        Value result(type, arena);
         result->is_error = true;
         result->error.message = "unresolved reference";
         return result;
     }
     if (stack->type == type) {
         if (!index) {
-            return stack->value;
+            return {stack->type, stack->value, arena};
         }
-        return find_eval_stack(stack->next, type, index - 1, block);
+        return find_eval_stack(stack->next, type, index - 1, arena);
     }
-    return find_eval_stack(stack->next, type, index, block);
+    return find_eval_stack(stack->next, type, index, arena);
+}
+
+inline type_t* resolve_type(type_t* type, stack_t* stack) {
+    if (type->kind == TYPE_REFERENCE_KIND) {
+        int index = type->reference.index;
+        while (stack) {
+            if (stack->type->kind == TYPE_KIND) {
+                if (!index) {
+                    return stack->value->primitive.type;
+                }
+                index--;
+            }
+            stack = stack->next;
+        }
+    }
+    return type;
 }
 
 class Evaluator {
 public:
-    Evaluator(mem_block_t* block) : block(block) {
+    Evaluator(mem_block_t* block) : arena(Arena(block)) {
     }
 
-    Value evaluate(const expr_t* expr, eval_stack_t* stack);
+    Value evaluate(const expr_t* expr, stack_t* stack);
 
 private:
-    mem_block_t* block;
+    Arena arena;
 };
 
 bool eq_values(const type_t* type, const value_t* left, const value_t* right) {
@@ -445,12 +533,16 @@ bool eq_values(const type_t* type, const value_t* left, const value_t* right) {
     return false;
 }
 
-Value Evaluator::evaluate(const expr_t* expr, eval_stack_t* stack) {
-    Value result(expr->type, block);
+Value Evaluator::evaluate(const expr_t* expr, stack_t* stack) {
+    Value result(resolve_type(expr->type, stack), arena);
     switch (expr->operation) {
     case FUNC:
         {
-            result->function = expr;
+            result->closure.function = expr;
+            result->closure.stack = stack;
+            if (stack) {
+                stack->ref_count++;
+            }
             return result;
         }
     case EVAL:
@@ -463,12 +555,13 @@ Value Evaluator::evaluate(const expr_t* expr, eval_stack_t* stack) {
             if (argument->is_error) {
                 return argument;
             }
-            eval_stack_t entry = {
-                .type = expr->eval.argument->type,
-                .value = argument,
-                .next = stack,
-            };
-            return evaluate(function->function->func.body, &entry);
+            Stack entry(
+                arena.new_stack(
+                    argument.get_type(),
+                    argument.get(),
+                    function->closure.stack
+                ), arena);
+            return evaluate(function->closure.function->func.body, entry.unsafe());
         }
         break;
     case AND:
@@ -592,28 +685,30 @@ Value Evaluator::evaluate(const expr_t* expr, eval_stack_t* stack) {
             if (head_fn->is_error) {
                 return head_fn;
             }
-            const type_t* element_type = expr->elem.list->type->list.element_type;
-            Value head(element_type, list->cons.head, block);
-            eval_stack_t head_entry = {
-                .type = element_type,
-                .value = head,
-                .next = stack,
-            };
-            Value tail_fn_ctor(evaluate(head_fn->function->func.body, &head_entry));
+            type_t* element_type = expr->elem.list->type->list.element_type;
+            Value head(element_type, list->cons.head, arena);
+            Stack head_entry(
+                arena.new_stack(
+                    element_type,
+                    head.get(),
+                    head_fn->closure.stack
+                ), arena);
+            Value tail_fn_ctor(evaluate(head_fn->closure.function->func.body, head_entry.unsafe()));
             if (tail_fn_ctor->is_error) {
                 return tail_fn_ctor;
             }
-            Value tail_fn(evaluate(tail_fn_ctor->function, &head_entry));
+            Value tail_fn(evaluate(tail_fn_ctor->closure.function, head_entry.unsafe()));
             if (tail_fn->is_error) {
                 return tail_fn;
             }
-            Value tail(expr->elem.list->type, list->cons.tail, block);
-            eval_stack_t tail_entry = {
-                .type = expr->elem.list->type,
-                .value = tail,
-                .next = &head_entry,
-            };
-            return evaluate(tail_fn->function->func.body, &tail_entry);
+            Value tail(expr->elem.list->type, list->cons.tail, arena);
+            Stack tail_entry(
+                arena.new_stack(
+                    expr->elem.list->type,
+                    tail.get(),
+                    head_entry.unsafe()
+                ), arena);
+            return evaluate(tail_fn->closure.function->func.body, tail_entry.unsafe());
         }
     case PAIR:
         {
@@ -653,30 +748,32 @@ Value Evaluator::evaluate(const expr_t* expr, eval_stack_t* stack) {
             Value either(evaluate(expr->_switch.either, stack));
             bool is_left = either->either.is_left;
             if (is_left) {
-                const type_t* left_type = expr->_switch.either->type->either.left_type;
-                Value value(left_type, either->either.value, block);
-                eval_stack_t entry = {
-                    .type = left_type,
-                    .value = value,
-                    .next = stack,
-                };
+                type_t* left_type = expr->_switch.either->type->either.left_type;
+                Value value(left_type, either->either.value, arena);
                 Value fn(evaluate(expr->_switch.map_left, stack));
-                return evaluate(fn->function->func.body, &entry);
+                Stack entry(
+                    arena.new_stack(
+                        left_type,
+                        value.get(),
+                        fn->closure.stack
+                    ), arena);
+                return evaluate(fn->closure.function->func.body, entry.unsafe());
             }
             else {
-                const type_t* right_type = expr->_switch.either->type->either.right_type;
-                Value value(right_type, either->either.value, block);
-                eval_stack_t entry = {
-                    .type = right_type,
-                    .value = value,
-                    .next = stack,
-                };
+                type_t* right_type = expr->_switch.either->type->either.right_type;
+                Value value(right_type, either->either.value, arena);
                 Value fn(evaluate(expr->_switch.map_right, stack));
-                return evaluate(fn->function->func.body, &entry);
+                Stack entry(
+                    arena.new_stack(
+                        right_type,
+                        value.get(),
+                        fn->closure.stack
+                    ), arena);
+                return evaluate(fn->closure.function->func.body, entry.unsafe());
             }
         }
     case REFERENCE:
-        return find_eval_stack(stack, expr->type, expr->reference.index, block);
+        return find_eval_stack(stack, resolve_type(expr->type, stack), expr->reference.index, arena);
     case PRIMITIVE:
         switch (expr->type->kind) {
         case BOOL_KIND:
@@ -684,6 +781,9 @@ Value Evaluator::evaluate(const expr_t* expr, eval_stack_t* stack) {
             break;
         case INT_KIND:
             result->primitive.integer = expr->primitive.integer;
+            break;
+        case TYPE_KIND:
+            result->primitive.type = expr->primitive.type;
             break;
         }
         return result;

@@ -7,11 +7,13 @@ extern bool test_transform();
 extern bool test_mem();
 extern bool test_io();
 extern bool test_ast();
+extern bool test_interpreter();
 
 int main() {
     bool result = true;
     printf("Running tests\n");
     // for (;;) {
+        result &= test_interpreter();
         result &= test_ast();
         // result &= test_graph();
         // result &= test_filter();
