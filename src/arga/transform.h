@@ -114,10 +114,10 @@ void apply_transformation(const graph_t * graph, const node_t * node, const tran
 void init_transform(guide_builder_t* guide);
 
 transform_call_t* sample_transform(
-    task_t* task, const graph_t* graph, filter_call_t* filter, trail_t** p_trail);
+    arga_task_t* task, const graph_t* graph, filter_call_t* filter, trail_t** p_trail);
 
 trail_t* observe_transform(trail_t* trail, const transform_call_t* call);
 
-void free_transform(task_t * task, transform_call_t * call);
+void free_transform(arga_task_t * task, transform_call_t * call);
 
 #endif // __TRANSFORM_H__

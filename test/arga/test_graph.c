@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "binding.h"
-#include "graph.h"
-#include "image.h"
-#include "test.h"
-#include "transform.h"
+#include "../../src/arga/binding.h"
+#include "../../src/arga/graph.h"
+#include "../../src/arga/image.h"
+#include "../test.h"
+#include "../../src/arga/transform.h"
 
 extern node_t* bind_node_by_size(const graph_t* graph, const binding_arguments_t* params);
 extern node_t* bind_neighbor_by_size(const graph_t* graph, const binding_arguments_t* params);

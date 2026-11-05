@@ -1,5 +1,5 @@
-#include "io.h"
-#include "test.h"
+#include "../../src/util/io.h"
+#include "../test.h"
 
 BEGIN_TEST(test_read_task) {
     task_t* task = parse_task("{\"train\":[],\"test\":[]}");
@@ -11,10 +11,10 @@ BEGIN_TEST(test_read_task) {
         "{\"train\":[{\"input\":[[0, 1, 2], [2, 1, 0]],\"output\":[[1, 2], [2, "
         "1]]}],\"test\":[]}");
     ASSERT(task->n_train == 1, "Incorrect number of training examples");
-    const graph_t* input = task->train_input[0];
+    const grid_t* input = task->train_input[0];
     ASSERT(input->width == 3, "Incorrect width of grid");
     ASSERT(input->height == 2, "Incorrect height of grid");
-    const graph_t* output = task->train_output[0];
+    const grid_t* output = task->train_output[0];
     ASSERT(task->n_test == 0, "Incorrect number of test examples");
     free_task(task);
 }

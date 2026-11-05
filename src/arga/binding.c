@@ -198,7 +198,7 @@ void add_binding(guide_builder_t* builder, const char* prefix) {
 }
 
 binding_call_t* sample_binding(
-    task_t* task, const graph_t* graph, const filter_call_t* filter, trail_t** p_trail) {
+    arga_task_t* task, const graph_t* graph, const filter_call_t* filter, trail_t** p_trail) {
     binding_valid_arguments_t arg_vals;
     get_binding_arguments(graph, &arg_vals);
 

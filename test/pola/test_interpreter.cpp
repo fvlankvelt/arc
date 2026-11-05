@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <vector>
 
-#include "test.h"
-#include "ast.h"
+#include "../test.h"
+#include "../../src/pola/ast.h"
 
 
 typedef struct _type_stack {

@@ -1,6 +1,5 @@
 #include "transform.h"
 
-#include <stdbool.h>
 #include <string.h>
 
 #include "binding.h"
@@ -658,7 +657,7 @@ void init_transform(guide_builder_t* builder) {
 }
 
 transform_call_t* sample_transform(
-    task_t* task, const graph_t* graph, filter_call_t* filter, trail_t** p_trail) {
+    arga_task_t* task, const graph_t* graph, filter_call_t* filter, trail_t** p_trail) {
     transform_call_t* call = new_item(task->_mem_transform_calls);
     call->dynamic = (transform_dynamic_arguments_t){
         .color = NULL,
@@ -825,7 +824,7 @@ trail_t* observe_transform(trail_t* trail, const transform_call_t* call) {
     return trail;
 }
 
-void free_transform(task_t* task, transform_call_t* call) {
+void free_transform(arga_task_t* task, transform_call_t* call) {
     if (call->dynamic.direction) {
         free_item(task->_mem_binding_calls, call->dynamic.direction);
     }

@@ -1,6 +1,6 @@
 #include "ast.h"
 
-#include "mem.h"
+#include "../util/mem.h"
 
 /**
  * Stack of lambda argument types, used when validating references

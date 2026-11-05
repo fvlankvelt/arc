@@ -2,9 +2,9 @@
 
 #include <math.h>
 
-#include "mtwister.h"
-#include "nnet.h"
-#include "task.h"
+#include "../util/mtwister.h"
+#include "../util/nnet.h"
+#include "../util/task.h"
 
 void init_guide(guide_builder_t* builder) {
     builder->items = NULL;

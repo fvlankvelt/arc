@@ -1,8 +1,7 @@
-#include "nnet.h"
-
+#include <iostream>
 #include <torch/torch.h>
 
-#include <iostream>
+#include "nnet.h"
 
 using namespace torch;
 using namespace std;

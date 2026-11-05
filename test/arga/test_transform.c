@@ -1,8 +1,8 @@
-#include "filter.h"
-#include "graph.h"
-#include "image.h"
-#include "test.h"
-#include "transform.h"
+#include "../../src/arga/filter.h"
+#include "../../src/arga/graph.h"
+#include "../../src/arga/image.h"
+#include "../../src/arga/transform.h"
+#include "../test.h"
 
 // for testing
 extern bool update_color(graph_t* graph, node_t* node, transform_arguments_t* params);

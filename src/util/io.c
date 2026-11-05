@@ -1,25 +1,28 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
 #include <cjson/cJSON.h>
 
 #include "io.h"
-#include "image.h"
 #include "task.h"
 
-graph_t* read_graph(cJSON* json_grid) {
+grid_t* read_graph(cJSON* json_grid) {
     int input_rows = cJSON_GetArraySize(json_grid);
     cJSON* first_row = cJSON_GetArrayItem(json_grid, 0);
     int input_cols = cJSON_GetArraySize(first_row);
-    color_t grid[input_cols * input_rows];
+    grid_t* grid = malloc(sizeof(grid_t) + input_cols * input_rows * sizeof(color_t));
+    grid->width = input_cols;
+    grid->height = input_rows;
+    grid->cells = (color_t*)(((char*)grid) + sizeof(grid_t));
     for (int row = 0; row < input_rows; row++) {
         cJSON* json_row = cJSON_GetArrayItem(json_grid, row);
         for (int col = 0; col < input_cols; col++) {
             cJSON* cell = cJSON_GetArrayItem(json_row, col);
-            grid[row * input_cols + col] = cJSON_GetNumberValue(cell);
+            grid->cells[row * input_cols + col] = cJSON_GetNumberValue(cell);
         }
     }
-    return graph_from_grid(grid, input_rows, input_cols);
+    return grid;
 }
 
 task_t* parse_task(const char* source) {
@@ -53,22 +56,24 @@ task_t* parse_task(const char* source) {
     return task;
 }
 
-const char * read_task(const char * name) {
+const char* read_task(const char* name) {
     char filename[128];
     if (strlen(name) < 100) {
         sprintf(filename, "data/%s", name);
-    } else {
+    }
+    else {
         return NULL;
     }
 
-    char *source = NULL;
-    FILE *fp = fopen(filename, "r");
+    char* source = NULL;
+    FILE* fp = fopen(filename, "r");
     if (fp != NULL) {
         /* Go to the end of the file. */
         if (fseek(fp, 0L, SEEK_END) == 0) {
             /* Get the size of the file. */
             long bufsize = ftell(fp);
-            if (bufsize == -1) { /* Error */
+            if (bufsize == -1) {
+                /* Error */
                 exit(-1);
             }
 
@@ -76,7 +81,8 @@ const char * read_task(const char * name) {
             source = malloc(sizeof(char) * (bufsize + 1));
 
             /* Go back to the start of the file. */
-            if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */
+            if (fseek(fp, 0L, SEEK_SET) != 0) {
+                /* Error */
                 exit(-1);
             }
 
@@ -84,7 +90,8 @@ const char * read_task(const char * name) {
             size_t newLen = fread(source, sizeof(char), bufsize, fp);
             if (ferror(fp) != 0) {
                 fputs("Error reading file", stderr);
-            } else {
+            }
+            else {
                 source[newLen++] = '\0'; /* Just to be safe. */
             }
         }
@@ -95,21 +102,21 @@ const char * read_task(const char * name) {
 }
 
 task_def_t* list_tasks() {
-    task_def_t * result = NULL;
+    task_def_t* result = NULL;
     DIR* d = opendir("data");
     if (d) {
         struct dirent* dir;
         while ((dir = readdir(d)) != NULL) {
-            char * name = dir->d_name;
+            char* name = dir->d_name;
             if (strlen(name) < 6 || strncmp(".json", &name[strlen(name) - 5], 5)) {
                 continue;
             }
             int len = strlen(name);
-            task_def_t * entry = malloc(sizeof(task_def_t) + len + 1);
+            task_def_t* entry = malloc(sizeof(task_def_t) + len + 1);
             entry->next = result;
             entry->task = NULL;
-            entry->name = (char *)(((void *) entry) + sizeof(task_def_t));
-            memcpy((char *) entry->name, name, len + 1);
+            entry->name = (char*)(((void*)entry) + sizeof(task_def_t));
+            memcpy((char*)entry->name, name, len + 1);
             result = entry;
         }
         closedir(d);

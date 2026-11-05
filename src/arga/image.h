@@ -1,6 +1,8 @@
 #ifndef __IMAGE__
 #define __IMAGE__
 
+#include <stdio.h>
+#include "../util/task.h"
 #include "graph.h"
 #include "guide.h"
 

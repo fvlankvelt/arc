@@ -4,7 +4,7 @@
 #include "graph.h"
 #include "guide.h"
 #include "filter.h"
-#include "task.h"
+#include "../util/task.h"
 
 typedef struct _binding_arguments {
     int size;
@@ -37,7 +37,7 @@ void add_binding(guide_builder_t* guide, const char* prefix);
 
 // sample a binding, or NULL when sample didn't match the graph/filter
 binding_call_t* sample_binding(
-    task_t* task, const graph_t* graph, const filter_call_t* filter, trail_t** p_trail);
+    arga_task_t* task, const graph_t* graph, const filter_call_t* filter, trail_t** p_trail);
 
 // only to be used in pure training (i.e. not sampling)
 // when binding is skipped, use NULL for the call

@@ -1,5 +1,5 @@
-#include "mem.h"
-#include "test.h"
+#include "../../src/util/mem.h"
+#include "../test.h"
 
 typedef struct _test_item {
     struct _test_item* next;

@@ -2,8 +2,8 @@
 #define __GUIDE_H__
 
 #include "graph.h"
-#include "mem.h"
-#include "mtwister.h"
+#include "../util/mem.h"
+#include "../util/mtwister.h"
 
 #define MAX_CHOICES 32
 

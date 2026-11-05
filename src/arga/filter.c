@@ -1,7 +1,7 @@
 #include "filter.h"
 
+#include "arga_task.h"
 #include "guide.h"
-#include "util.h"
 
 #define MAX_ARGUMENT_VALUES 20
 
@@ -328,7 +328,7 @@ void init_filter(guide_builder_t* builder) {
 /**
  * Sample a filter, may return NULL when the created sample turned out to be invalid
  */
-filter_call_t* sample_filter(task_t* task, const graph_t* graph, trail_t** p_trail) {
+filter_call_t* sample_filter(arga_task_t* task, const graph_t* graph, trail_t** p_trail) {
     filter_valid_arguments_t arg_vals;
     get_filter_arguments(graph, &arg_vals);
 

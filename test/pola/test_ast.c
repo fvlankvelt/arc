@@ -1,7 +1,7 @@
 #include <stdio.h>
 
-#include "test.h"
-#include "ast.h"
+#include "../test.h"
+#include "../../src/pola/ast.h"
 
 BEGIN_TEST(test_primitive)
     {

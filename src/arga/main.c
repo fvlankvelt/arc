@@ -1,13 +1,13 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 
+#include "arga_task.h"
 #include "filter.h"
 #include "guide.h"
 #include "image.h"
-#include "io.h"
-#include "mtwister.h"
 #include "transform.h"
+
+#include "../util/io.h"
+#include "../util/mtwister.h"
 
 int main(int argc, char* argv[]) {
     FILE* out = stdout;
@@ -48,21 +48,21 @@ int main(int argc, char* argv[]) {
     while (true) {
         int i_task = genRandLong(&rnd) % n_tasks;
         task_def_t* task_def = task_array[i_task];
-        task_t* task = task_def->task;
+        arga_task_t* arga_task = new_arga_task(task_def->task);
 
-        int i_train = genRandLong(&rnd) % task->n_train;
-        const graph_t* input = task->train_input[i_train];
-        const graph_t* output = task->train_output[i_train];
+        int i_train = genRandLong(&rnd) % arga_task->task->n_train;
+        const graph_t* input = arga_task->train_input[i_train];
+        const graph_t* output = arga_task->train_output[i_train];
         trail_t* trail = new_trail(input, output, guide);
 
         abstraction_t* abstraction = sample_abstraction(&trail);
         graph_t* graph = abstraction->func(input);
-        filter_call_t* filter = sample_filter(task, graph, &trail);
+        filter_call_t* filter = sample_filter(arga_task, graph, &trail);
         if (!filter) {
             goto no_filter;
         }
 
-        transform_call_t* call = sample_transform(task, graph, filter, &trail);
+        transform_call_t* call = sample_transform(arga_task, graph, filter, &trail);
         if (!call) {
             goto no_transform;
         }
@@ -134,15 +134,16 @@ int main(int argc, char* argv[]) {
         free_graph(reconstructed);
 
     no_reconstruction:
-        free_transform(task, call);
+        free_transform(arga_task, call);
 
     no_transform:
-        free_item(task->_mem_filter_calls, filter);
+        free_item(arga_task->_mem_filter_calls, filter);
 
     no_filter:
         free_graph(graph);
 
         free_trail(guide, trail, false);
+        free_arga_task(arga_task);
     }
 
     return 0;

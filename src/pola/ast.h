@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "mem.h"
+#include "../util/mem.h"
 
 /**
  * Abstract syntax tree that should be easy to generate with transformer-based neural network.

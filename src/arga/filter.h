@@ -1,11 +1,10 @@
 #ifndef __FILTER_H__
 #define __FILTER_H__
 
-#include <stdbool.h>
-
+#include "arga_task.h"
 #include "graph.h"
 #include "image.h"
-#include "task.h"
+#include "../util/task.h"
 
 typedef struct _filter_arguments {
     int size;
@@ -38,11 +37,11 @@ bool filter_by_size(const graph_t* graph, const node_t* node, const filter_argum
 bool filter_by_color(const graph_t* graph, const node_t* node, const filter_arguments_t* args);
 bool filter_by_degree(const graph_t* graph, const node_t* node, const filter_arguments_t* args);
 
-filter_call_t* get_candidate_filters(task_t* task, const abstraction_t* abstraction);
+// filter_call_t* get_candidate_filters(arga_task_t* task, const abstraction_t* abstraction);
 
 void init_filter(guide_builder_t* guide);
 
-filter_call_t* sample_filter(task_t* task, const graph_t* graph, trail_t** p_trail);
+filter_call_t* sample_filter(arga_task_t* task, const graph_t* graph, trail_t** p_trail);
 
 trail_t * observe_filter(trail_t* trail, const filter_call_t* call);
 

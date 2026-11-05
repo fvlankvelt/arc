@@ -1,8 +1,8 @@
-#include "filter.h"
-#include "graph.h"
-#include "image.h"
-#include "test.h"
-#include "transform.h"
+#include "../../src/arga/filter.h"
+#include "../../src/arga/graph.h"
+#include "../../src/arga/image.h"
+#include "../test.h"
+#include "../../src/arga/transform.h"
 
 extern bool filter_by_color(
     const graph_t* graph, const node_t* node, const filter_arguments_t* args);

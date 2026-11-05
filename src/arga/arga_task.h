@@ -1,15 +1,13 @@
-#ifndef __TASK_H__
-#define __TASK_H__
+#ifndef ARC_ARGA_TASK_H
+#define ARC_ARGA_TASK_H
 
 #include "graph.h"
-#include "mem.h"
+#include "../util/mem.h"
+#include "../util/task.h"
 
-#define MAX_TRAIN_EXAMPLES 10
-#define MAX_TEST_INPUT 5
+typedef struct _arga_task {
+    task_t * task;
 
-typedef struct _task {
-    int n_train;
-    int n_test;
     const graph_t* train_input[MAX_TRAIN_EXAMPLES];
     const graph_t* train_output[MAX_TRAIN_EXAMPLES];
     const graph_t* test_input[MAX_TEST_INPUT];
@@ -19,9 +17,9 @@ typedef struct _task {
     mem_block_t* _mem_filter_calls;
     mem_block_t* _mem_binding_calls;
     mem_block_t* _mem_transform_calls;
-} task_t;
+} arga_task_t;
 
-task_t* new_task();
-void free_task(task_t* task);
+arga_task_t* new_arga_task(task_t * task);
+void free_arga_task(arga_task_t* arga_task);
 
-#endif  // __TASK_H__
+#endif //ARC_ARGA_TASK_H
