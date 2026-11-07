@@ -75,7 +75,7 @@ typedef enum _operation
 } operation_t;
 
 /**
- * Parametrized types - in particular function, list & tuple need type arguments.
+ * Parametrized types - in particular function, list, pair & either need type arguments.
  */
 typedef enum _kind
 {

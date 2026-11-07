@@ -14,7 +14,7 @@ Inference Compilation
 As we want the neural network - the "guide" - to adapt to a wide range of (input, output) pairs and come up with reasonable suggestions of choices to pursue, it needs to be trained on a very wide selection of pairs with their corresponding transformational program.  The way we do that is by 
 * taking (input, output) pairs from the training set
 * use the guide to select a program, initialized with the (input, output) pair
-* take the output' that was created by the program (in general different from the wanted output) and use that to classify the program
+* take the output that was created by the program (in general different from the wanted output) and use that to classify the program
 
 This is reminiscent of reinforcement learning, where the program creates/selects its own training data.  It allows us to use existing training data, without setting up an additional dataset.  We can also gauge progress, by seeing how often the neural network guides to the correct solution (where output' equals output).
 
@@ -27,7 +27,19 @@ The neural network is a bit peculiar, in that it needs to deal with varying inpu
 We follow the Attention for Inference Compilation, by encoding the (input,output) pair into a rich "context".  For each choice, the context is translated into a Query.  Previous choices give rise to (Key, Value) pairs.  The (soft) attention mechanism then provides a way to encode a dependency of a later choice on an earlier one.
 
 
-Domain Specific Language
-------------------------
+Approaches
+==========
+
+As this project is an experiment in using (transformer) neural networks to guide program construction, it contains a number of different approaches.
+
+
+Domain Specific Language (ARGA)
+-------------------------------
 
 The DSL has been lifted from the paper "Graphs, Constraints, and Search for the Abstraction and Reasoning Corpus".  It was able to solve a reasonable part of the training set with a small set of abstractions and graph operations.
+
+
+Polymorphic Lambda Calculus
+---------------------------
+
+A more generic approach is to use a Turing-complete programming language based on the polymorphic lambda calculus.  The type system guides top-down program construction, with the neural network selecting a representative of a type to fill a slot.  The representative may need some arguments by itself, requiring construction to dive deeper.
