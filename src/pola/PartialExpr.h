@@ -8,7 +8,8 @@ public:
     PartialExpr(ExprBuilder& builder, type_t* type) :
         builder(builder), type(type) {
     };
-    virtual ~PartialExpr();
+
+    virtual ~PartialExpr() = 0;
 
     virtual const operation_t operation() const;
 
@@ -23,10 +24,10 @@ protected:
     type_t* type;
 };
 
-class FuncExpr : PartialExpr {
+class FuncExpr : public PartialExpr {
 public:
-    FuncExpr(ExprBuilder& builder, type_t* func_type) : PartialExpr(
-        builder, func_type) {
+    FuncExpr(ExprBuilder& builder, type_t* func_type) :
+        PartialExpr(builder, func_type) {
         assert(func_type->kind == FUNC_KIND);
         body = nullptr;
     }
@@ -56,7 +57,7 @@ private:
     expr_t* body;
 };
 
-class EvalExpr : PartialExpr {
+class EvalExpr : public PartialExpr {
 public:
     EvalExpr(ExprBuilder& builder, type_t* result_type, type_t* argument_type) :
         PartialExpr(builder, result_type),
@@ -107,7 +108,7 @@ private:
     expr_t* argument;
 };
 
-class BoolExpr : PartialExpr {
+class BoolExpr : public PartialExpr {
 public:
     BoolExpr(ExprBuilder& builder, operation_t operation) :
         PartialExpr(builder, builder.bool_type()), _operation(operation) {
@@ -155,9 +156,10 @@ private:
     expr_t* second;
 };
 
-class IfExpr : PartialExpr {
+class IfExpr : public PartialExpr {
 public:
-    IfExpr(ExprBuilder& builder, type_t* type) : PartialExpr(builder, type) {
+    IfExpr(ExprBuilder& builder, type_t* type) :
+        PartialExpr(builder, type) {
         predicate = nullptr;
         _then = nullptr;
         _else = nullptr;
@@ -202,7 +204,7 @@ private:
     expr_t* _else;
 };
 
-class EqExpr : PartialExpr {
+class EqExpr : public PartialExpr {
 public:
     EqExpr(ExprBuilder& builder, type_t* arg_type) :
         PartialExpr(builder, builder.bool_type()), arg_type(arg_type) {
@@ -237,7 +239,7 @@ private:
     expr_t* right;
 };
 
-class ArithExpr : PartialExpr {
+class ArithExpr : public PartialExpr {
 public:
     ArithExpr(ExprBuilder& builder, operation_t operation) :
         PartialExpr(builder, builder.int_type()),
@@ -276,7 +278,7 @@ private:
     expr_t* second;
 };
 
-class ConsExpr : PartialExpr {
+class ConsExpr : public PartialExpr {
 public:
     ConsExpr(ExprBuilder& builder, type_t* element_type) :
         PartialExpr(builder, builder.list_type(element_type)),
@@ -318,7 +320,7 @@ private:
     expr_t* tail;
 };
 
-class ElemExpr : PartialExpr {
+class ElemExpr : public PartialExpr {
 public:
     ElemExpr(ExprBuilder& builder, type_t* type, type_t* element_type) :
         PartialExpr(builder, type), element_type(element_type) {
@@ -377,7 +379,7 @@ private:
     expr_t* nonempty;
 };
 
-class PairExpr : PartialExpr {
+class PairExpr : public PartialExpr {
 public:
     PairExpr(ExprBuilder& builder, type_t* left_type, type_t* right_type) :
         PartialExpr(builder, builder.pair_type(left_type, right_type)) {
@@ -417,7 +419,7 @@ private:
     expr_t* right;
 };
 
-class LeftRightExpr : PartialExpr {
+class LeftRightExpr : public PartialExpr {
 public:
     LeftRightExpr(ExprBuilder& builder, operation_t operation, type_t* pair_type) :
         PartialExpr(builder, operation == LEFT ? pair_type->pair.left_type : pair_type->pair.right_type),
@@ -451,7 +453,7 @@ private:
     expr_t* upstream;
 };
 
-class EitherExpr : PartialExpr {
+class EitherExpr : public PartialExpr {
 public:
     EitherExpr(ExprBuilder& builder, type_t* left_type, type_t* right_type, bool is_left) :
         PartialExpr(builder, builder.either_type(left_type, right_type)),
@@ -482,7 +484,7 @@ private:
     expr_t* value;
 };
 
-class SwitchExpr : PartialExpr {
+class SwitchExpr : public PartialExpr {
 public:
     SwitchExpr(ExprBuilder& builder, type_t* type, type_t* either_type) :
         PartialExpr(builder, type), either_type(either_type) {
@@ -538,7 +540,7 @@ private:
     expr_t* map_right;
 };
 
-class PrimitiveExpr : PartialExpr {
+class PrimitiveExpr : public PartialExpr {
 public:
     PrimitiveExpr(ExprBuilder& builder, type_t* type) :
         PartialExpr(builder, type), _bool(false), _int(0), ref_type(nullptr) {
@@ -593,9 +595,9 @@ private:
     type_t* ref_type;
 };
 
-class ReferenceExpr : PartialExpr {
+class ReferenceExpr : public PartialExpr {
 public:
-    ReferenceExpr(ExprBuilder& builder, type_t * type) :
+    ReferenceExpr(ExprBuilder& builder, type_t* type) :
         PartialExpr(builder, type) {
         index = 0;
     }

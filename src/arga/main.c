@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
         int i_train = genRandLong(&rnd) % arga_task->task->n_train;
         const graph_t* input = arga_task->train_input[i_train];
         const graph_t* output = arga_task->train_output[i_train];
-        trail_t* trail = new_trail(input, output, guide);
+        trail_t* trail = new_trail(input, output, guide, false);
 
         abstraction_t* abstraction = sample_abstraction(&trail);
         graph_t* graph = abstraction->func(input);
@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (transformed) {
-            trail_t* train_trail = new_trail(input, reconstructed, guide);
+            trail_t* train_trail = new_trail(input, reconstructed, guide, true);
             train_trail = observe_abstraction(train_trail, abstraction);
             train_trail = observe_filter(train_trail, filter);
             train_trail = observe_transform(train_trail, call);

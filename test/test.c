@@ -15,11 +15,11 @@ int main() {
     // for (;;) {
         result &= test_interpreter();
         result &= test_ast();
-        // result &= test_graph();
-        // result &= test_filter();
-        // result &= test_transform();
-        // result &= test_mem();
-        // result &= test_io();
+        result &= test_graph();
+        result &= test_filter();
+        result &= test_transform();
+        result &= test_mem();
+        result &= test_io();
     // }
     if (result) {
         return 0;

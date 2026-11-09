@@ -69,7 +69,7 @@ void add_spatial(guide_builder_t* guide, repr_dihedral_t repr, const char* name)
     *p_item = item;
 }
 
-trail_t* new_trail(const graph_t* input, const graph_t* output, guide_t* guide) {
+trail_t* new_trail(const graph_t* input, const graph_t* output, guide_t* guide, bool is_training) {
     trail_t* trail = new_item(guide->_trail_mem);
     trail->guide = guide;
     trail->cursor = guide->items;
@@ -110,6 +110,7 @@ trail_t* new_trail(const graph_t* input, const graph_t* output, guide_t* guide) 
 
     trail->_nnet_trail = create_network_trail(
         guide->_nnet_guide,
+        is_training,
         input->width,
         input->height,
         input_pixels,

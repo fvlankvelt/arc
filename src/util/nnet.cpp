@@ -43,10 +43,11 @@ struct NNetConfig {
     int n_prepare;
     int n_conv_channels;
     int n_pos_dim;
+    int n_ff;
     // int k;
     // int v;
 
-    int size() const { return n_pos_dim * n_pos_dim + n_conv_channels; }
+    int size() const { return 2 * n_pos_dim + n_conv_channels; }
 };
 
 struct DecoderState {
@@ -80,7 +81,7 @@ struct EmbeddingImpl : nn::Module {
     }
 
     Tensor forward(const Tensor& input, const Tensor& output) {
-        Tensor input_pos = embed_position(input); // 65536, 7, 7
+        Tensor input_pos = embed_position(input); // 64, 7, 7
         Tensor input_feat = conv_input->forward(input); // 128, 7, 7
         // cout << "pos: " << input_pos.sizes() << ", feat: " << input_feat.sizes() << endl;
         Tensor input_flat = flatten({cat({input_pos, input_feat}, 0)}, 1);
@@ -98,24 +99,29 @@ private:
 
         // scale position to be in (0, 2 * pi) range
         // (input_width)
-        Tensor input_hor = (at::arange(input_width) + 0.5f) * 2 * M_PI_2f32 / input_width;
+        Tensor input_hor = (at::arange(input_width) + 0.5f) * 2 * M_PIf32 / input_width;
         // (input_width, n_pos_dim / 2)
         Tensor input_hor_fourier = input_hor.outer(at::arange(config.n_pos_dim / 2));
         // (input_width, n_pos_dim)
         Tensor input_hor_emb =
             cat({input_hor_fourier.cos(), input_hor_fourier.sin()}, 1).cuda();
 
+        Tensor hor_emb = input_hor_emb.transpose(0, 1).unsqueeze(1).expand({-1, input_height, -1});
+
         // (input_height)
-        Tensor input_ver = (at::arange(input_height) + 0.5f) * 2 * M_PI_2f32 / input_height;
+        Tensor input_ver = (at::arange(input_height) + 0.5f) * 2 * M_PIf32 / input_height;
         // (input_height, n_pos_dim / 2)
         Tensor input_ver_fourier = input_ver.outer(at::arange(config.n_pos_dim / 2));
         // (input_height, n_pos_dim)
         Tensor input_ver_emb =
-            cat({input_ver_fourier.cos(), input_ver_fourier.sin()}, 1).cuda();
+            cat({input_ver_fourier.cos(), input_ver_fourier.sin()}, 1)
+            .cuda();
 
-        // embedding is of size 4 * n_pos_dim^2
-        // (4 * n_pos_dim^2, input_height, input_width)
-        return flatten(einsum("ik,jl->klij", {input_ver_emb, input_hor_emb}), 0, 1);
+        Tensor ver_emb = input_ver_emb.transpose(0, 1).unsqueeze(2).expand({-1, -1, input_width});
+
+        // embedding is size 2 * n_pos_dim
+        // (2 * n_pos_dim, input_height, input_width)
+        return cat({hor_emb, ver_emb}, 0);
     }
 
     NNetConfig config;
@@ -128,18 +134,30 @@ TORCH_MODULE(Embedding);
 struct EncoderStepImpl : nn::Module {
     EncoderStepImpl(const NNetConfig& config)
         : qkv(register_parameter("self_attn", torch::rand({config.size(), 3 * config.size()}))),
-          out_proj(register_module("out_proj", nn::Linear(config.size(), config.size()))) {
+          feed_forward_(register_module(
+              "feed_forward",
+              nn::Sequential(
+                  nn::Linear(config.size(), config.n_ff),
+                  nn::ReLU(),
+                  nn::Linear(config.n_ff, config.size())
+              ))),
+          norm1(register_module("norm1", nn::LayerNorm(nn::LayerNormOptions({config.size()})))),
+          norm2(register_module("norm2", nn::LayerNorm(nn::LayerNormOptions({config.size()})))) {
     }
 
     Tensor forward(const Tensor& state) {
         auto proj = chunk(matmul(state, qkv), 3, 1);
-        return out_proj->forward(
-            scaled_dot_product_attention(proj[0], proj[1], proj[2]));
+        auto attn = scaled_dot_product_attention(proj[0], proj[1], proj[2]);
+        Tensor x = norm1(state + attn);
+        Tensor ff_out = feed_forward_->forward(x);
+        return norm2(x + ff_out);
     }
 
 private:
     Tensor qkv;
-    nn::Linear out_proj;
+    nn::Sequential feed_forward_;
+    nn::LayerNorm norm1;
+    nn::LayerNorm norm2;
 };
 
 TORCH_MODULE(EncoderStep);
@@ -235,15 +253,14 @@ public:
           optimizer(
               std::vector<optim::OptimizerParamGroup>(), optim::AdamWOptions(1e-5).amsgrad(true)),
           scheduler(optimizer, 10000, 0.5),
-          minibatch_size(0),
-          loss(torch::zeros({1}, TensorOptions().requires_grad(true)).cuda()) {
+          minibatch_size(0) {
         int index = 0;
         for (auto& step : decoder) {
             std::string name = "choice_" + std::to_string(index++);
             register_module(name, step);
         }
         for (index = 0; index < config.n_prepare; index++) {
-            std::string name = "prepare_" + std::to_string(index++);
+            std::string name = "prepare_" + std::to_string(index);
             encoder_steps.push_back(register_module(name, EncoderStep(config)));
         }
         to(kCUDA);
@@ -267,16 +284,14 @@ public:
 
 private:
     void train(Tensor sample_loss) {
-        loss = loss + sample_loss;
+        sample_loss.backward();
         minibatch_size += 1;
         if (minibatch_size == 10) {
             optimizer.zero_grad(true);
-            loss.backward();
             optimizer.step();
             scheduler.step();
 
             minibatch_size = 0;
-            loss = torch::zeros({1}, TensorOptions().requires_grad(true)).cuda();
         }
     }
 
@@ -292,7 +307,6 @@ private:
 
     // dynamically built up mini-batch
     int minibatch_size;
-    Tensor loss;
 };
 
 class NNetTrail {
@@ -305,7 +319,7 @@ public:
 
     void next_choice(double* p) {
         state = (*iter)->forward(state);
-        auto soft_dist = state.dist_state.softmax(0).to(kFloat64).cpu();
+        auto soft_dist = state.dist_state.softmax(1).to(kFloat64).cpu();
         // cout << "  choice: " << soft_dist.sizes() << endl;
         double* dist_values = (double*)soft_dist.data_ptr();
         for (int i = 0; i < soft_dist.sizes().at(1); i++) {
@@ -358,6 +372,11 @@ public:
         return *this;
     }
 
+    NNetBuilder& n_ff(int n_ff) {
+        config.n_ff = n_ff;
+        return *this;
+    }
+
     void add_choice(unsigned int n_choices, const string& name) {
         decoder.push_back(DecoderStep(config, n_choices, name));
     }
@@ -375,7 +394,7 @@ private:
 extern "C" {
 guide_net_builder_t create_network() {
     NNetBuilder* builder = new NNetBuilder();
-    builder->n_conv_channels(128).n_pos_dim(32).n_prepare(10).batch_norm_momentum(0.01);
+    builder->n_conv_channels(256).n_pos_dim(32).n_ff(256).n_prepare(20).batch_norm_momentum(0.01);
     return builder;
 }
 
@@ -391,6 +410,7 @@ guide_net_t build_network(guide_net_builder_t net) {
 
 trail_net_t create_network_trail(
     guide_net_t c_guide,
+    bool is_training,
     unsigned int input_width,
     unsigned int input_height,
     unsigned int* input_pixels,
@@ -426,6 +446,8 @@ trail_net_t create_network_trail(
             output_data[z * output_size + output_data_idx] = 1.0f;
         }
     }
+
+    GradMode::set_enabled(is_training);
 
     Tensor input_tensor = torch::from_blob(
         input_data,

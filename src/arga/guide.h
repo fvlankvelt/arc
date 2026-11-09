@@ -89,7 +89,7 @@ void add_spatial(guide_builder_t* builder, repr_dihedral_t repr, const char* nam
 
 guide_t * build_guide(guide_builder_t * builder);
 
-trail_t* new_trail(const graph_t* input, const graph_t* output, guide_t* guide);
+trail_t* new_trail(const graph_t* input, const graph_t* output, guide_t* guide, bool is_training);
 
 /**
  * Before continuing to the next choice on the trail, the observed choice

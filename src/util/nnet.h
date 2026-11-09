@@ -17,6 +17,7 @@ typedef void * trail_net_t;
 
 trail_net_t create_network_trail(
   guide_net_t net,
+  bool is_training,
   unsigned int input_width,
   unsigned int input_height,
   unsigned int * input_pixels,
