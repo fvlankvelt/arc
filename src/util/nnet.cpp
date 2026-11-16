@@ -283,14 +283,14 @@ public:
     }
 
 private:
-    void train(Tensor sample_loss) {
+    void train(const Tensor& sample_loss) {
         sample_loss.backward();
         minibatch_size += 1;
         if (minibatch_size == 10) {
-            optimizer.zero_grad(true);
             optimizer.step();
             scheduler.step();
 
+            optimizer.zero_grad(true);
             minibatch_size = 0;
         }
     }

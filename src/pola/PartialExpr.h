@@ -11,6 +11,10 @@ public:
 
     virtual ~PartialExpr() = 0;
 
+    const type_t * get_type() const {
+        return type;
+    }
+
     virtual const operation_t operation() const;
 
     virtual std::vector<type_t*> slots() const;
@@ -381,8 +385,9 @@ private:
 
 class PairExpr : public PartialExpr {
 public:
-    PairExpr(ExprBuilder& builder, type_t* left_type, type_t* right_type) :
-        PartialExpr(builder, builder.pair_type(left_type, right_type)) {
+    PairExpr(ExprBuilder& builder, type_t* pair_type) :
+        PartialExpr(builder, pair_type) {
+        assert(pair_type->kind == PAIR_KIND);
         left = nullptr;
         right = nullptr;
     }
@@ -455,8 +460,8 @@ private:
 
 class EitherExpr : public PartialExpr {
 public:
-    EitherExpr(ExprBuilder& builder, type_t* left_type, type_t* right_type, bool is_left) :
-        PartialExpr(builder, builder.either_type(left_type, right_type)),
+    EitherExpr(ExprBuilder& builder, type_t* either_type, bool is_left) :
+        PartialExpr(builder, either_type),
         is_left(is_left) {
         value = nullptr;
     }

@@ -114,6 +114,10 @@ public:
         return type;
     }
 
+    std::vector<type_t *> list_types() const {
+        return types;
+    }
+
     expr_t* bool_primitive(bool value) {
         expr_t* expr = (expr_t*)new_item(this->_exprs);
         expr->type = bool_type();
